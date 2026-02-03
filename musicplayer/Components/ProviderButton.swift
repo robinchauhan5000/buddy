@@ -15,11 +15,6 @@ struct ProviderButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: DesignSystem.Spacing.xs) {
-                if provider == .streaming {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: DesignSystem.FontSize.sm))
-                }
-                
                 Text(provider.rawValue)
                     .font(.system(size: DesignSystem.FontSize.sm, weight: .medium))
             }
@@ -39,7 +34,6 @@ struct ProviderButton: View {
     HStack(spacing: DesignSystem.Spacing.md) {
         ProviderButton(provider: .openAI, isSelected: true, action: {})
         ProviderButton(provider: .gemini, isSelected: false, action: {})
-        ProviderButton(provider: .streaming, isSelected: false, action: {})
     }
     .padding()
     .background(DesignSystem.Colors.background)

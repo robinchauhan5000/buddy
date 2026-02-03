@@ -2,6 +2,8 @@ import SwiftUI
 
 struct MessageBubbleView: View {
     let message: ChatMessage
+    let onEdit: (ChatMessage) -> Void
+    let onResend: (ChatMessage) -> Void
     
     var body: some View {
         HStack(alignment: .top, spacing: DesignSystem.Spacing.md) {
@@ -13,6 +15,10 @@ struct MessageBubbleView: View {
             
             VStack(alignment: message.role == .user ? .trailing : .leading, spacing: DesignSystem.Spacing.xs) {
                 contentView
+                
+                if message.role == .user, isUserTextMessage {
+                    userActionButtons
+                }
                 
                 if message.isStreaming {
                     streamingIndicator
@@ -27,6 +33,12 @@ struct MessageBubbleView: View {
         }
         .padding(.horizontal, DesignSystem.Spacing.xl)
         .padding(.vertical, DesignSystem.Spacing.lg)
+    }
+
+    private var isUserTextMessage: Bool {
+        if message.role != .user { return false }
+        if case .text = message.content { return true }
+        return false
     }
     
     private var avatarView: some View {
@@ -66,6 +78,26 @@ struct MessageBubbleView: View {
             )
             .cornerRadius(DesignSystem.CornerRadius.lg)
             .frame(maxWidth: 600, alignment: message.role == .user ? .trailing : .leading)
+    }
+
+    private var userActionButtons: some View {
+        HStack(spacing: DesignSystem.Spacing.sm) {
+            Button(action: { onEdit(message) }) {
+                Image(systemName: "pencil")
+                    .font(.system(size: DesignSystem.FontSize.sm, weight: .medium))
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+            
+            Button(action: { onResend(message) }) {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: DesignSystem.FontSize.sm, weight: .medium))
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.plain)
+        }
     }
     
     private func structuredResponseView(_ response: AIResponse) -> some View {
@@ -138,8 +170,8 @@ struct MessageBubbleView: View {
     
     private func codeBlockView(_ code: String, language: String?) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            if let language = language {
-                HStack {
+            HStack {
+                if let language = language {
                     Text(language)
                         .font(.system(size: DesignSystem.FontSize.xs, weight: .medium))
                         .foregroundColor(DesignSystem.Colors.textSecondary)
@@ -148,12 +180,27 @@ struct MessageBubbleView: View {
                         .background(DesignSystem.Colors.tertiaryBackground)
                         .cornerRadius(DesignSystem.CornerRadius.sm)
                         .textSelection(.enabled)
-                    
-                    Spacer()
                 }
-                .padding(DesignSystem.Spacing.sm)
-                .background(DesignSystem.Colors.background)
+                
+                Spacer()
+                
+                Button(action: { MessageBubbleView.copyToPasteboard(code) }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc.on.doc")
+                            .font(.system(size: DesignSystem.FontSize.xs, weight: .medium))
+                        Text("Copy")
+                            .font(.system(size: DesignSystem.FontSize.xs, weight: .medium))
+                    }
+                    .foregroundColor(DesignSystem.Colors.textSecondary)
+                    .padding(.horizontal, DesignSystem.Spacing.sm)
+                    .padding(.vertical, DesignSystem.Spacing.xs)
+                    .background(DesignSystem.Colors.tertiaryBackground)
+                    .cornerRadius(DesignSystem.CornerRadius.sm)
+                }
+                .buttonStyle(.plain)
             }
+            .padding(DesignSystem.Spacing.sm)
+            .background(DesignSystem.Colors.background)
             
             ScrollView(.horizontal, showsIndicators: true) {
                 Text(code)
@@ -169,6 +216,28 @@ struct MessageBubbleView: View {
             RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
                 .stroke(DesignSystem.Colors.border, lineWidth: 1)
         )
+    }
+
+    private func copyToPasteboard(_ text: String) {
+        guard !text.isEmpty else { return }
+        #if canImport(AppKit)
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+        #elseif canImport(UIKit)
+        UIPasteboard.general.string = text
+        #endif
+    }
+
+    private static func copyToPasteboard(_ text: String) {
+        guard !text.isEmpty else { return }
+        #if canImport(AppKit)
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+        #elseif canImport(UIKit)
+        UIPasteboard.general.string = text
+        #endif
     }
     
     private func errorBubble(_ error: String) -> some View {

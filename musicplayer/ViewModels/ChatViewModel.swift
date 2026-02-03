@@ -22,6 +22,7 @@ final class ChatViewModel: ObservableObject {
     private let speechRecognitionService = SpeechRecognitionService()
     private var recordingBaseText: String = ""
     private var cancellables: Set<AnyCancellable> = []
+    private var streamingTask: Task<Void, Never>?
     
     init(apiKey: String? = nil) {
         let key = apiKey ?? AppConfig.openAIAPIKey
@@ -43,9 +44,22 @@ final class ChatViewModel: ObservableObject {
         currentInput = ""
         isProcessing = true
         
-        Task {
+        streamingTask?.cancel()
+        streamingTask = Task {
             await processAIResponse(for: questionText)
         }
+    }
+
+    func resendMessage(_ message: ChatMessage) {
+        guard let text = messagePlainTextIfUser(message) else { return }
+        currentInput = text
+        sendMessage()
+    }
+
+    func editMessage(_ message: ChatMessage) {
+        guard let text = messagePlainTextIfUser(message) else { return }
+        currentInput = text
+        recordingBaseText = text
     }
     
     func clearChat() {
@@ -54,6 +68,8 @@ final class ChatViewModel: ObservableObject {
         isProcessing = false
         streamBuffer = ""
         currentMessageId = nil
+        streamingTask?.cancel()
+        streamingTask = nil
         if isRecording {
             speechRecognitionService.cancelRecording()
             isRecording = false
@@ -64,10 +80,19 @@ final class ChatViewModel: ObservableObject {
     func clearInput() {
         currentInput = ""
         recordingBaseText = ""
+        streamingTask?.cancel()
+        streamingTask = nil
+        stopStreamingState()
         if isRecording {
             speechRecognitionService.cancelRecording()
             isRecording = false
         }
+    }
+
+    func abortCurrentRequest() {
+        streamingTask?.cancel()
+        streamingTask = nil
+        stopStreamingState()
     }
 
     func toggleSpeechInput() {
@@ -147,6 +172,8 @@ final class ChatViewModel: ObservableObject {
             }
             
             finalizeStreamingMessage(messageId: messageId)
+        } catch is CancellationError {
+            stopStreamingState()
         } catch {
             handleError(messageId: messageId, error: error)
         }
@@ -201,6 +228,23 @@ final class ChatViewModel: ObservableObject {
         currentMessageId = nil
     }
 
+    private func stopStreamingState() {
+        if let messageId = currentMessageId,
+           let index = messages.firstIndex(where: { $0.id == messageId }) {
+            let content = messages[index].content
+            messages[index] = ChatMessage(
+                id: messageId,
+                role: .assistant,
+                content: content,
+                timestamp: messages[index].timestamp,
+                isStreaming: false
+            )
+        }
+        isProcessing = false
+        streamBuffer = ""
+        currentMessageId = nil
+    }
+
     private func bindSpeechRecognition() {
         speechRecognitionService.$recognizedText
             .receive(on: RunLoop.main)
@@ -250,6 +294,14 @@ final class ChatViewModel: ObservableObject {
         }
 
         return "\(roleTitle):\n\(contentText)"
+    }
+
+    private func messagePlainTextIfUser(_ message: ChatMessage) -> String? {
+        guard message.role == .user else { return nil }
+        if case .text(let text) = message.content {
+            return text
+        }
+        return nil
     }
 
     private func structuredResponseText(_ response: AIResponse) -> String {

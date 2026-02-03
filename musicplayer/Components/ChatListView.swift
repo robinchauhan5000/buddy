@@ -2,6 +2,8 @@ import SwiftUI
 
 struct ChatListView: View {
     let messages: [ChatMessage]
+    let onEdit: (ChatMessage) -> Void
+    let onResend: (ChatMessage) -> Void
     
     var body: some View {
         ScrollViewReader { proxy in
@@ -11,7 +13,11 @@ struct ChatListView: View {
                         emptyStateView
                     } else {
                         ForEach(messages) { message in
-                            MessageBubbleView(message: message)
+                            MessageBubbleView(
+                                message: message,
+                                onEdit: onEdit,
+                                onResend: onResend
+                            )
                                 .id(message.id)
                         }
                     }

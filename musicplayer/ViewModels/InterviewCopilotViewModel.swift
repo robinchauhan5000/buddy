@@ -7,6 +7,7 @@
 
 import Foundation
 import Combine
+import AppKit
 
 @MainActor
 class InterviewCopilotViewModel: ObservableObject {
@@ -14,6 +15,7 @@ class InterviewCopilotViewModel: ObservableObject {
     @Published var selectedCategory: Category = .normal
     @Published var sessionState: SessionState = .active
     @Published var isMicrophoneActive: Bool = false
+    @Published var isScreenShareHidden: Bool = true
     
     private let speechRecognitionService = SpeechRecognitionService()
     private var onSpeechRecognized: ((String) -> Void)?
@@ -59,11 +61,27 @@ class InterviewCopilotViewModel: ObservableObject {
         }
     }
     
+    func toggleScreenShareVisibility() {
+        setScreenShareHidden(!isScreenShareHidden)
+    }
+    
+    func setScreenShareHidden(_ hidden: Bool) {
+        isScreenShareHidden = hidden
+        updateWindowSharingType(hidden: hidden)
+    }
+    
     func shareScreen() {
         print("Share screen")
     }
     
     func deleteSession() {
         print("Delete session")
+    }
+    
+    private func updateWindowSharingType(hidden: Bool) {
+        let sharingType: NSWindow.SharingType = hidden ? .none : .readOnly
+        for window in NSApplication.shared.windows {
+            window.sharingType = sharingType
+        }
     }
 }

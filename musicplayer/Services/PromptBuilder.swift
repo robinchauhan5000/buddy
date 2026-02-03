@@ -134,7 +134,7 @@ ALLOWED SECTION TYPES:
 """
     
     static func buildSystemPrompt(for category: Category, language: ProgrammingLanguage = .golang) -> String {
-        let baseRules = getBaseRules()
+        let baseRules = getBaseRules(language: language)
         let categoryPrompt = getCategoryPrompt(for: category, language: language)
         let schema = category == .systemDesign ? "" : jsonSchema
         
@@ -147,7 +147,7 @@ ALLOWED SECTION TYPES:
 """
     }
     
-    private static func getBaseRules() -> String {
+    private static func getBaseRules(language: ProgrammingLanguage) -> String {
         return """
 You are an Expert Interview Assistant helping candidates prepare for technical interviews.
 
@@ -157,6 +157,7 @@ STRICT RULES:
 3. Do NOT add extra fields outside the schema
 4. Sections must appear in a logical order
 5. Be accurate, professional, and interview-focused
+6. Use \(language.rawValue) for any code and examples that require a programming language
 """
     }
     

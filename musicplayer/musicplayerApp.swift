@@ -21,6 +21,7 @@ struct musicplayerApp: App {
                     if let window = NSApplication.shared.windows.first {
                         window.level = .floating
                         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+                        window.sharingType = .none
                     }
                 }
         }
@@ -34,6 +35,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let window = NSApplication.shared.windows.first {
             window.level = .floating
             window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            window.sharingType = .none
         }
     }
 }

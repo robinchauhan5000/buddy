@@ -11,6 +11,7 @@ import Combine
 struct InterviewCopilotView: View {
     @StateObject private var viewModel = InterviewCopilotViewModel()
     @StateObject private var chatViewModel = ChatViewModel()
+    @State private var showScreenShareVisibleConfirm = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -20,11 +21,19 @@ struct InterviewCopilotView: View {
                 selectedCategory: $chatViewModel.selectedCategory,
                 selectedLanguage: $chatViewModel.selectedLanguage,
                 onCopy: chatViewModel.copyAllMessages,
+                onToggleScreenShareVisibility: {
+                    if viewModel.isScreenShareHidden {
+                        showScreenShareVisibleConfirm = true
+                    } else {
+                        viewModel.toggleScreenShareVisibility()
+                    }
+                },
                 onMicrophone: viewModel.toggleMicrophone,
                 onScreenShare: viewModel.shareScreen,
                 onDelete: chatViewModel.clearChat,
                 onProviderChange: { _ in },
-                isMicrophoneActive: viewModel.isMicrophoneActive
+                isMicrophoneActive: viewModel.isMicrophoneActive,
+                isScreenShareHidden: viewModel.isScreenShareHidden
             )
             
             SessionInfoView(
@@ -32,7 +41,20 @@ struct InterviewCopilotView: View {
             )
         }
         .background(DesignSystem.Colors.background)
+        .confirmationDialog(
+            "Make it?",
+            isPresented: $showScreenShareVisibleConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Yes") {
+                viewModel.toggleScreenShareVisibility()
+            }
+            Button("No", role: .cancel) {}
+        } message: {
+            Text("Do you really want to close.")
+        }
         .onAppear {
+            viewModel.setScreenShareHidden(true)
             // Set up callback to send recognized speech as message
             viewModel.setSpeechRecognizedCallback { recognizedText in
                 chatViewModel.currentInput = recognizedText

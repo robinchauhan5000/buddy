@@ -51,8 +51,6 @@ final class AIService: AIServiceProtocol {
             return "/v1/chat/completions"
         case .gemini:
             return "/v1/models/gemini-pro:streamGenerateContent"
-        case .streaming:
-            return "/v1/stream"
         }
     }
     
@@ -73,11 +71,6 @@ final class AIService: AIServiceProtocol {
                     ["parts": [["text": "\(systemPrompt)\n\n\(prompt)"]]]
                 ]
             ]
-        case .streaming:
-            return [
-                "prompt": prompt,
-                "system": systemPrompt
-            ]
         }
     }
     
@@ -89,10 +82,6 @@ final class AIService: AIServiceProtocol {
                 "Authorization": "Bearer YOUR_API_KEY"
             ]
         case .gemini:
-            return [
-                "Content-Type": "application/json"
-            ]
-        case .streaming:
             return [
                 "Content-Type": "application/json"
             ]

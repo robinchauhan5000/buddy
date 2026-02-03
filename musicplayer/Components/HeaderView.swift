@@ -13,11 +13,13 @@ struct HeaderView: View {
     @Binding var selectedCategory: Category
     @Binding var selectedLanguage: ProgrammingLanguage
     let onCopy: () -> Void
+    let onToggleScreenShareVisibility: () -> Void
     let onMicrophone: () -> Void
     let onScreenShare: () -> Void
     let onDelete: () -> Void
     let onProviderChange: (AIProvider) -> Void
     var isMicrophoneActive: Bool = false
+    var isScreenShareHidden: Bool = true
     
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.md) {
@@ -34,6 +36,17 @@ struct HeaderView: View {
                         )
                     }
                 }
+                
+                Spacer()
+                
+                IconButton(
+                    iconName: isScreenShareHidden ? "eye.slash" : "eye",
+                    action: onToggleScreenShareVisibility,
+                    size: DesignSystem.IconSize.lg,
+                    backgroundColor: DesignSystem.Colors.tertiaryBackground,
+                    foregroundColor: DesignSystem.Colors.textSecondary,
+                    isActive: !isScreenShareHidden
+                )
                 
                 Spacer()
                 
@@ -107,11 +120,13 @@ struct HeaderView: View {
         selectedCategory: $category,
         selectedLanguage: $language,
         onCopy: {},
+        onToggleScreenShareVisibility: {},
         onMicrophone: {},
         onScreenShare: {},
         onDelete: {},
         onProviderChange: { _ in },
-        isMicrophoneActive: true
+        isMicrophoneActive: true,
+        isScreenShareHidden: true
     )
     .background(DesignSystem.Colors.background)
 }

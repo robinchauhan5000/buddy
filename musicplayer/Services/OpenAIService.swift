@@ -130,7 +130,7 @@ final class OpenAIService: AIModel {
         includeOptionalCodePhase: Bool
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
         return AsyncThrowingStream { continuation in
-            Task {
+            let task = Task {
                 var phaseSections: [Int: [MessageSection]] = [:]
                 var title = ""
                 let baseSystemPrompt = PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language)
@@ -138,6 +138,9 @@ final class OpenAIService: AIModel {
                 
                 do {
                     for phase in 1...lastPhase {
+                        if Task.isCancelled {
+                            throw CancellationError()
+                        }
                         let userPrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
                             phase: phase,
                             question: prompt
@@ -151,6 +154,9 @@ final class OpenAIService: AIModel {
                         )
                         
                         for try await phaseResponse in phaseStream {
+                            if Task.isCancelled {
+                                throw CancellationError()
+                            }
                             if title.isEmpty && !phaseResponse.title.isEmpty {
                                 title = phaseResponse.title
                             }
@@ -180,6 +186,10 @@ final class OpenAIService: AIModel {
                     continuation.finish(throwing: error)
                 }
             }
+            
+            continuation.onTermination = { _ in
+                task.cancel()
+            }
         }
     }
     
@@ -195,7 +205,7 @@ final class OpenAIService: AIModel {
         imageData: Data?
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
         return AsyncThrowingStream { continuation in
-            Task {
+            let task = Task {
                 guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else {
                     continuation.finish(throwing: AIModelError("Invalid URL", provider: "OpenAI"))
                     return
@@ -262,6 +272,9 @@ final class OpenAIService: AIModel {
                     let parser = StreamingResponseParser()
                     
                     for try await line in bytes.lines {
+                        if Task.isCancelled {
+                            throw CancellationError()
+                        }
                         if line.hasPrefix("data: ") {
                             let data = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
                             
@@ -291,6 +304,10 @@ final class OpenAIService: AIModel {
                 } catch {
                     continuation.finish(throwing: error)
                 }
+            }
+            
+            continuation.onTermination = { _ in
+                task.cancel()
             }
         }
     }
