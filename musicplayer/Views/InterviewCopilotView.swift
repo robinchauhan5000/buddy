@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 struct InterviewCopilotView: View {
     @StateObject private var viewModel = InterviewCopilotViewModel()
@@ -23,7 +24,7 @@ struct InterviewCopilotView: View {
                 onScreenShare: viewModel.shareScreen,
                 onDelete: chatViewModel.clearChat,
                 onProviderChange: { _ in },
-                isMicrophoneActive: viewModel.isRecording
+                isMicrophoneActive: viewModel.isMicrophoneActive
             )
             
             SessionInfoView(
@@ -33,6 +34,13 @@ struct InterviewCopilotView: View {
             )
         }
         .background(DesignSystem.Colors.background)
+        .onAppear {
+            // Set up callback to send recognized speech as message
+            viewModel.setSpeechRecognizedCallback { recognizedText in
+                chatViewModel.currentInput = recognizedText
+                chatViewModel.sendMessage()
+            }
+        }
     }
 }
 

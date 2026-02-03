@@ -14,10 +14,18 @@ class InterviewCopilotViewModel: ObservableObject {
     @Published var selectedCategory: Category = .normal
     @Published var sessionState: SessionState = .active
     @Published var isRecording: Bool = false
+    @Published var isMicrophoneActive: Bool = false
+    
+    private let speechRecognitionService = SpeechRecognitionService()
+    private var onSpeechRecognized: ((String) -> Void)?
     
     // MARK: - Computed Properties
     
     // MARK: - Actions
+    
+    func setSpeechRecognizedCallback(_ callback: @escaping (String) -> Void) {
+        onSpeechRecognized = callback
+    }
     
     func selectProvider(_ provider: AIProvider) {
         selectedProvider = provider
@@ -32,7 +40,28 @@ class InterviewCopilotViewModel: ObservableObject {
     }
     
     func toggleMicrophone() {
-        print("Toggle microphone")
+        if isMicrophoneActive {
+            // Stop recording and send the message
+            let recognizedText = speechRecognitionService.stopRecording()
+            isMicrophoneActive = false
+            
+            if !recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                onSpeechRecognized?(recognizedText)
+            }
+        } else {
+            // Start recording
+            guard speechRecognitionService.isAuthorized else {
+                print("Speech recognition not authorized")
+                return
+            }
+            
+            do {
+                try speechRecognitionService.startRecording()
+                isMicrophoneActive = true
+            } catch {
+                print("Failed to start recording: \(error.localizedDescription)")
+            }
+        }
     }
     
     func shareScreen() {
