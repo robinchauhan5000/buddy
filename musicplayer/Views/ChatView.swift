@@ -3,8 +3,6 @@ import Combine
 
 struct ChatView: View {
     @ObservedObject var viewModel: ChatViewModel
-    let isRecording: Bool
-    let onRecord: () -> Void
     
     var body: some View {
         VStack(spacing: 0) {
@@ -16,10 +14,10 @@ struct ChatView: View {
             ChatInputView(
                 text: $viewModel.currentInput,
                 isProcessing: viewModel.isProcessing,
-                isRecording: isRecording,
+                isRecording: viewModel.isRecording,
                 onSend: viewModel.sendMessage,
-                onClear: viewModel.clearChat,
-                onRecord: onRecord
+                onClear: viewModel.clearInput,
+                onRecord: viewModel.toggleSpeechInput
             )
         }
         .background(DesignSystem.Colors.background)

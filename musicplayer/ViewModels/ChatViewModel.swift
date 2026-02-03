@@ -11,6 +11,7 @@ final class ChatViewModel: ObservableObject {
     @Published var messages: [ChatMessage] = []
     @Published var currentInput: String = ""
     @Published var isProcessing: Bool = false
+    @Published var isRecording: Bool = false
     @Published var selectedCategory: Category = .normal
     @Published var selectedProvider: AIProvider = .openAI
     @Published var selectedLanguage: ProgrammingLanguage = .golang
@@ -18,10 +19,14 @@ final class ChatViewModel: ObservableObject {
     private var streamBuffer: String = ""
     private var currentMessageId: UUID?
     private let openAIService: OpenAIService
+    private let speechRecognitionService = SpeechRecognitionService()
+    private var recordingBaseText: String = ""
+    private var cancellables: Set<AnyCancellable> = []
     
     init(apiKey: String? = nil) {
         let key = apiKey ?? AppConfig.openAIAPIKey
         self.openAIService = OpenAIService(apiKey: key)
+        bindSpeechRecognition()
     }
     
     func sendMessage() {
@@ -49,6 +54,47 @@ final class ChatViewModel: ObservableObject {
         isProcessing = false
         streamBuffer = ""
         currentMessageId = nil
+        if isRecording {
+            speechRecognitionService.cancelRecording()
+            isRecording = false
+        }
+        recordingBaseText = ""
+    }
+
+    func clearInput() {
+        currentInput = ""
+        recordingBaseText = ""
+        if isRecording {
+            speechRecognitionService.cancelRecording()
+            isRecording = false
+        }
+    }
+
+    func toggleSpeechInput() {
+        if isRecording {
+            let finalText = speechRecognitionService.stopRecording()
+            isRecording = false
+            if !finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                currentInput = appendedSpeechText(
+                    base: recordingBaseText,
+                    recognized: finalText
+                )
+            }
+            return
+        }
+
+        guard speechRecognitionService.isAuthorized else {
+            print("Speech recognition not authorized")
+            return
+        }
+
+        do {
+            recordingBaseText = currentInput
+            try speechRecognitionService.startRecording()
+            isRecording = true
+        } catch {
+            print("Failed to start recording: \(error.localizedDescription)")
+        }
     }
 
     func copyAllMessages() {
@@ -153,6 +199,33 @@ final class ChatViewModel: ObservableObject {
         
         isProcessing = false
         currentMessageId = nil
+    }
+
+    private func bindSpeechRecognition() {
+        speechRecognitionService.$recognizedText
+            .receive(on: RunLoop.main)
+            .sink { [weak self] text in
+                guard let self = self else { return }
+                guard self.isRecording else { return }
+                self.currentInput = self.appendedSpeechText(
+                    base: self.recordingBaseText,
+                    recognized: text
+                )
+            }
+            .store(in: &cancellables)
+    }
+
+    private func appendedSpeechText(base: String, recognized: String) -> String {
+        let trimmedBase = base.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedRecognized = recognized.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if trimmedBase.isEmpty {
+            return trimmedRecognized
+        }
+        if trimmedRecognized.isEmpty {
+            return trimmedBase
+        }
+        return "\(trimmedBase) \(trimmedRecognized)"
     }
 
     private func messagePlainText(_ message: ChatMessage) -> String {

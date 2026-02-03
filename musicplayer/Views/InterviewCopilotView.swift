@@ -28,9 +28,7 @@ struct InterviewCopilotView: View {
             )
             
             SessionInfoView(
-                chatViewModel: chatViewModel,
-                isRecording: viewModel.isRecording,
-                onRecord: viewModel.toggleRecording
+                chatViewModel: chatViewModel
             )
         }
         .background(DesignSystem.Colors.background)

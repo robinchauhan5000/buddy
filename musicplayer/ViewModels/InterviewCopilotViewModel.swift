@@ -13,7 +13,6 @@ class InterviewCopilotViewModel: ObservableObject {
     @Published var selectedProvider: AIProvider = .openAI
     @Published var selectedCategory: Category = .normal
     @Published var sessionState: SessionState = .active
-    @Published var isRecording: Bool = false
     @Published var isMicrophoneActive: Bool = false
     
     private let speechRecognitionService = SpeechRecognitionService()
@@ -33,10 +32,6 @@ class InterviewCopilotViewModel: ObservableObject {
     
     func selectCategory(_ category: Category) {
         selectedCategory = category
-    }
-    
-    func toggleRecording() {
-        isRecording.toggle()
     }
     
     func toggleMicrophone() {
