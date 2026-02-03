@@ -40,7 +40,10 @@ struct InterviewCopilotView: View {
                 chatViewModel: chatViewModel
             )
         }
-        .background(DesignSystem.Colors.background)
+        .background(
+            VisualEffectBlur(material: .hudWindow, blendingMode: .withinWindow)
+                .opacity(0.3)
+        )
         .sheet(isPresented: $viewModel.showSettings) {
             SettingsView(
                 selectedProvider: $chatViewModel.selectedProvider,
@@ -74,4 +77,23 @@ struct InterviewCopilotView: View {
 #Preview {
     InterviewCopilotView()
         .frame(width: 1024, height: 768)
+}
+
+// MARK: - Visual Effect Blur
+struct VisualEffectBlur: NSViewRepresentable {
+    var material: NSVisualEffectView.Material
+    var blendingMode: NSVisualEffectView.BlendingMode
+    
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = blendingMode
+        view.state = .active
+        return view
+    }
+    
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+        nsView.blendingMode = blendingMode
+    }
 }

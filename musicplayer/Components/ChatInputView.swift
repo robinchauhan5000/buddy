@@ -87,6 +87,6 @@ struct ChatInputView: View {
         }
         .padding(.horizontal, DesignSystem.Spacing.xl)
         .padding(.vertical, DesignSystem.Spacing.md)
-        .background(DesignSystem.Colors.background)
+        .background(DesignSystem.Colors.secondaryBackground)
     }
 }

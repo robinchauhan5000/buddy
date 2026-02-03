@@ -10,17 +10,17 @@ import SwiftUI
 enum DesignSystem {
     // MARK: - Colors
     enum Colors {
-        static let background = Color(hex: "0A0A0A")
-        static let secondaryBackground = Color(hex: "1A1A1A")
-        static let tertiaryBackground = Color(hex: "252525")
+        static let background = Color.clear
+        static let secondaryBackground = Color.black.opacity(0.60)
+        static let tertiaryBackground = Color.black.opacity(0.50)
         static let accent = Color(hex: "6366F1")
         static let accentPurple = Color(hex: "7C3AED")
         static let activeGreen = Color(hex: "10B981")
         static let textPrimary = Color.white
         static let textSecondary = Color(hex: "9CA3AF")
         static let textTertiary = Color(hex: "6B7280")
-        static let border = Color(hex: "374151")
-        static let cardBackground = Color(hex: "1F1F1F")
+        static let border = Color.white.opacity(0.15)
+        static let cardBackground = Color.black.opacity(0.55)
     }
     
     // MARK: - Spacing
@@ -58,6 +58,28 @@ enum DesignSystem {
         static let md: CGFloat = 20
         static let lg: CGFloat = 24
         static let xl: CGFloat = 32
+    }
+    
+    // MARK: - Shadow
+    enum Shadow {
+        static let light = Color.black.opacity(0.3)
+        static let medium = Color.black.opacity(0.5)
+        static let heavy = Color.black.opacity(0.7)
+    }
+}
+
+// MARK: - View Extensions for Shadows
+extension View {
+    func textShadowLight() -> some View {
+        self.shadow(color: DesignSystem.Shadow.light, radius: 2, x: 0, y: 1)
+    }
+    
+    func textShadowMedium() -> some View {
+        self.shadow(color: DesignSystem.Shadow.medium, radius: 3, x: 0, y: 2)
+    }
+    
+    func cardShadow() -> some View {
+        self.shadow(color: DesignSystem.Shadow.light, radius: 8, x: 0, y: 4)
     }
 }
 

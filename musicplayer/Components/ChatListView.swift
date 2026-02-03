@@ -30,6 +30,7 @@ struct ChatListView: View {
                     }
                 }
             }
+            .background(DesignSystem.Colors.secondaryBackground)
         }
     }
     
