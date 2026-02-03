@@ -16,6 +16,7 @@ class InterviewCopilotViewModel: ObservableObject {
     @Published var sessionState: SessionState = .active
     @Published var isMicrophoneActive: Bool = false
     @Published var isScreenShareHidden: Bool = true
+    @Published var showSettings: Bool = false
     
     private let speechRecognitionService = SpeechRecognitionService()
     private var onSpeechRecognized: ((String) -> Void)?
@@ -71,7 +72,7 @@ class InterviewCopilotViewModel: ObservableObject {
     }
     
     func shareScreen() {
-        print("Share screen")
+        showSettings = true
     }
     
     func deleteSession() {

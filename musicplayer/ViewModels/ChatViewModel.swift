@@ -15,11 +15,13 @@ final class ChatViewModel: ObservableObject {
     @Published var selectedCategory: Category = .normal
     @Published var selectedProvider: AIProvider = .openAI
     @Published var selectedLanguage: ProgrammingLanguage = .golang
+    @Published var capturedScreenshots: [ScreenshotData] = []
     
     private var streamBuffer: String = ""
     private var currentMessageId: UUID?
     private let openAIService: OpenAIService
     private let speechRecognitionService = SpeechRecognitionService()
+    private let screenshotService = ScreenshotService()
     private var recordingBaseText: String = ""
     private var cancellables: Set<AnyCancellable> = []
     private var streamingTask: Task<Void, Never>?
@@ -28,25 +30,38 @@ final class ChatViewModel: ObservableObject {
         let key = apiKey ?? AppConfig.openAIAPIKey
         self.openAIService = OpenAIService(apiKey: key)
         bindSpeechRecognition()
+        bindScreenshotService()
     }
     
     func sendMessage() {
-        guard !currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        guard !currentInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !capturedScreenshots.isEmpty else { return }
         
-        let userMessage = ChatMessage(
-            role: .user,
-            content: .text(currentInput),
-            timestamp: Date()
-        )
+        let userMessage: ChatMessage
+        if !capturedScreenshots.isEmpty {
+            let imageDataArray = capturedScreenshots.map { $0.imageData }
+            userMessage = ChatMessage(
+                role: .user,
+                content: .textWithImages(currentInput, imageDataArray),
+                timestamp: Date()
+            )
+        } else {
+            userMessage = ChatMessage(
+                role: .user,
+                content: .text(currentInput),
+                timestamp: Date()
+            )
+        }
         
         messages.append(userMessage)
         let questionText = currentInput
+        let screenshots = capturedScreenshots
         currentInput = ""
+        capturedScreenshots.removeAll()
         isProcessing = true
         
         streamingTask?.cancel()
         streamingTask = Task {
-            await processAIResponse(for: questionText)
+            await processAIResponse(for: questionText, screenshots: screenshots)
         }
     }
 
@@ -80,6 +95,7 @@ final class ChatViewModel: ObservableObject {
     func clearInput() {
         currentInput = ""
         recordingBaseText = ""
+        capturedScreenshots.removeAll()
         streamingTask?.cancel()
         streamingTask = nil
         stopStreamingState()
@@ -87,6 +103,22 @@ final class ChatViewModel: ObservableObject {
             speechRecognitionService.cancelRecording()
             isRecording = false
         }
+    }
+    
+    func captureScreenshot() {
+        Task {
+            do {
+                try await screenshotService.captureScreenshot()
+            } catch ScreenshotError.permissionDenied {
+                print("Screen recording permission required. Please grant permission in System Settings > Privacy & Security > Screen Recording")
+            } catch {
+                print("Failed to capture screenshot: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    func removeScreenshot(_ screenshot: ScreenshotData) {
+        capturedScreenshots.removeAll { $0.id == screenshot.id }
     }
 
     func abortCurrentRequest() {
@@ -138,7 +170,7 @@ final class ChatViewModel: ObservableObject {
         #endif
     }
     
-    private func processAIResponse(for question: String) async {
+    private func processAIResponse(for question: String, screenshots: [ScreenshotData] = []) async {
         let messageId = UUID()
         currentMessageId = messageId
         
@@ -151,17 +183,21 @@ final class ChatViewModel: ObservableObject {
         )
         messages.append(placeholderMessage)
         
-        await streamAIResponse(messageId: messageId, question: question)
+        await streamAIResponse(messageId: messageId, question: question, screenshots: screenshots)
     }
     
-    private func streamAIResponse(messageId: UUID, question: String) async {
+    private func streamAIResponse(messageId: UUID, question: String, screenshots: [ScreenshotData] = []) async {
         do {
+            // For multiple screenshots, we'll use the first one for now
+            // You can extend this to handle multiple images if needed
+            let imageData = screenshots.first?.imageData
+            
             let stream = openAIService.streamInterviewResponse(
                 prompt: question,
                 category: selectedCategory,
                 language: selectedLanguage,
                 includeOptionalCodePhase: false,
-                imageData: nil
+                imageData: imageData
             )
             
             for try await response in stream {
@@ -258,6 +294,15 @@ final class ChatViewModel: ObservableObject {
             }
             .store(in: &cancellables)
     }
+    
+    private func bindScreenshotService() {
+        screenshotService.$capturedScreenshots
+            .receive(on: RunLoop.main)
+            .sink { [weak self] screenshots in
+                self?.capturedScreenshots = screenshots
+            }
+            .store(in: &cancellables)
+    }
 
     private func appendedSpeechText(base: String, recognized: String) -> String {
         let trimmedBase = base.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -291,6 +336,8 @@ final class ChatViewModel: ObservableObject {
             contentText = "Error: \(error)"
         case .structured(let response):
             contentText = structuredResponseText(response)
+        case .textWithImages(let text, _):
+            contentText = text.isEmpty ? "[Image]" : text
         }
 
         return "\(roleTitle):\n\(contentText)"
@@ -298,10 +345,14 @@ final class ChatViewModel: ObservableObject {
 
     private func messagePlainTextIfUser(_ message: ChatMessage) -> String? {
         guard message.role == .user else { return nil }
-        if case .text(let text) = message.content {
+        switch message.content {
+        case .text(let text):
             return text
+        case .textWithImages(let text, _):
+            return text
+        default:
+            return nil
         }
-        return nil
     }
 
     private func structuredResponseText(_ response: AIResponse) -> String {

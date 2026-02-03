@@ -67,15 +67,15 @@ struct HeaderView: View {
                         isActive: isMicrophoneActive
                     )
                     IconButton(
-                        iconName: "rectangle.on.rectangle",
-                        action: onScreenShare,
+                        iconName: "trash",
+                        action: onDelete,
                         size: DesignSystem.IconSize.lg,
                         backgroundColor: DesignSystem.Colors.tertiaryBackground,
                         foregroundColor: DesignSystem.Colors.textSecondary
                     )
                     IconButton(
-                        iconName: "trash",
-                        action: onDelete,
+                        iconName: "gearshape.fill",
+                        action: onScreenShare,
                         size: DesignSystem.IconSize.lg,
                         backgroundColor: DesignSystem.Colors.tertiaryBackground,
                         foregroundColor: DesignSystem.Colors.textSecondary

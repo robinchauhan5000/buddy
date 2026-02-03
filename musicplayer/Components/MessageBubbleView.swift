@@ -37,8 +37,12 @@ struct MessageBubbleView: View {
 
     private var isUserTextMessage: Bool {
         if message.role != .user { return false }
-        if case .text = message.content { return true }
-        return false
+        switch message.content {
+        case .text, .textWithImages:
+            return true
+        default:
+            return false
+        }
     }
     
     private var avatarView: some View {
@@ -62,6 +66,8 @@ struct MessageBubbleView: View {
             structuredResponseView(response)
         case .error(let error):
             errorBubble(error)
+        case .textWithImages(let text, let images):
+            textWithImagesBubble(text, images: images)
         }
     }
     
@@ -78,6 +84,33 @@ struct MessageBubbleView: View {
             )
             .cornerRadius(DesignSystem.CornerRadius.lg)
             .frame(maxWidth: 600, alignment: message.role == .user ? .trailing : .leading)
+    }
+    
+    private func textWithImagesBubble(_ text: String, images: [Data]) -> some View {
+        VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
+            // Display images
+            ForEach(Array(images.enumerated()), id: \.offset) { index, imageData in
+                if let nsImage = NSImage(data: imageData) {
+                    Image(nsImage: nsImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxWidth: 400)
+                        .cornerRadius(DesignSystem.CornerRadius.md)
+                }
+            }
+            
+            // Display text if not empty
+            if !text.isEmpty {
+                Text(text)
+                    .font(.system(size: DesignSystem.FontSize.md))
+                    .foregroundColor(DesignSystem.Colors.textPrimary)
+                    .textSelection(.enabled)
+            }
+        }
+        .padding(DesignSystem.Spacing.md)
+        .background(DesignSystem.Colors.accent)
+        .cornerRadius(DesignSystem.CornerRadius.lg)
+        .frame(maxWidth: 600, alignment: .trailing)
     }
 
     private var userActionButtons: some View {

@@ -26,4 +26,5 @@ enum MessageContent: Equatable {
     case text(String)
     case structured(AIResponse)
     case error(String)
+    case textWithImages(String, [Data])
 }

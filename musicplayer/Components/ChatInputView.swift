@@ -7,6 +7,7 @@ struct ChatInputView: View {
     let onSend: () -> Void
     let onClear: () -> Void
     let onRecord: () -> Void
+    let onCaptureScreenshot: () -> Void
     
     var body: some View {
         HStack(spacing: DesignSystem.Spacing.md) {
@@ -28,6 +29,20 @@ struct ChatInputView: View {
                     .font(.system(size: DesignSystem.IconSize.md))
                     .foregroundColor(DesignSystem.Colors.textSecondary)
                     .frame(width: 40, height: 40)
+            }
+            .buttonStyle(.plain)
+            .disabled(isProcessing)
+            
+            Button(action: onCaptureScreenshot) {
+                ZStack {
+                    Circle()
+                        .fill(DesignSystem.Colors.tertiaryBackground)
+                        .frame(width: 40, height: 40)
+                    
+                    Image(systemName: "camera.viewfinder")
+                        .font(.system(size: DesignSystem.IconSize.md))
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                }
             }
             .buttonStyle(.plain)
             .disabled(isProcessing)

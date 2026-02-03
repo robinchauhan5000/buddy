@@ -41,6 +41,13 @@ struct InterviewCopilotView: View {
             )
         }
         .background(DesignSystem.Colors.background)
+        .sheet(isPresented: $viewModel.showSettings) {
+            SettingsView(
+                selectedProvider: $chatViewModel.selectedProvider,
+                selectedCategory: $chatViewModel.selectedCategory,
+                selectedLanguage: $chatViewModel.selectedLanguage
+            )
+        }
         .confirmationDialog(
             "Make it?",
             isPresented: $showScreenShareVisibleConfirm,
