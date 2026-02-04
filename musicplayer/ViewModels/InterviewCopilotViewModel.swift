@@ -61,6 +61,16 @@ class InterviewCopilotViewModel: ObservableObject {
             }
         }
     }
+
+    func startMicrophoneFromShortcut() {
+        guard !isMicrophoneActive else { return }
+        toggleMicrophone()
+    }
+    
+    func stopMicrophoneFromShortcut() {
+        guard isMicrophoneActive else { return }
+        toggleMicrophone()
+    }
     
     func toggleScreenShareVisibility() {
         setScreenShareHidden(!isScreenShareHidden)

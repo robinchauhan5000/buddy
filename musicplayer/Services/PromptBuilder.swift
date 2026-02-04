@@ -61,8 +61,12 @@ RESPONSE SCHEMA:
 """
     }
     
-    static func buildSystemDesignPhaseUserPrompt(phase: Int, question: String) -> String {
-        let phaseRules = getSystemDesignPhaseRules(phase)
+    static func buildSystemDesignPhaseUserPrompt(
+        phase: Int,
+        question: String,
+        language: ProgrammingLanguage = .golang
+    ) -> String {
+        let phaseRules = getSystemDesignPhaseRules(phase, language: language)
         let phaseSchema = getSystemDesignPhaseSchema(phase)
         
         return """
@@ -373,7 +377,10 @@ Remember: Technical discussions require depth and expertise - show senior-level 
         }
     }
     
-    private static func getSystemDesignPhaseRules(_ phase: Int) -> String {
+    private static func getSystemDesignPhaseRules(
+        _ phase: Int,
+        language: ProgrammingLanguage
+    ) -> String {
         switch phase {
         case 1:
             return """
@@ -421,7 +428,9 @@ ABSOLUTE RULES (FAIL IF VIOLATED):
 - DO NOT write complete sentences
 - DO NOT nest bullets
 - DO NOT include examples or use cases
-- DO NOT add headings other than specified
+- Flow should be starting to ending with the service name. it should include all the services as needed in the flow.
+- Add headings other than specified flow
+- Make proper services flow using arrows (->) for each flow.
 - ONLY use arrows (->) to represent flow
 
 OUTPUT STYLE:
@@ -468,6 +477,46 @@ Using all previous phases as context.
 Sections required:
 - high_level_code
 
+⚠️⚠️⚠️ CRITICAL: ALL CODE MUST BE IN ONE BLOCK WITH MARKDOWN FENCES ⚠️⚠️⚠️
+
+✅ CORRECT FORMAT (Complete example with multiple structs/interfaces):
+{
+  "type": "high_level_code",
+  "content": ["```golang\\npackage main\\n\\nimport (\\n  \\"context\\"\\n  \\"time\\"\\n)\\n\\n// Server is the main HTTP server\\ntype Server struct {\\n  store LinkStore\\n  cache Cache\\n}\\n\\n// Link represents a URL mapping\\ntype Link struct {\\n  Code      string\\n  TargetURL string\\n  Owner     string\\n  CreatedAt time.Time\\n}\\n\\n// LinkStore is the database abstraction\\ntype LinkStore interface {\\n  PutIfAbsent(ctx context.Context, link Link) (bool, error)\\n  GetByCode(ctx context.Context, code string) (*Link, error)\\n}\\n\\n// Cache is an in-memory store\\ntype Cache interface {\\n  Get(ctx context.Context, key string) (string, bool, error)\\n  Set(ctx context.Context, key string, value string, ttl time.Duration) error\\n}\\n\\nfunc (s *Server) CreateShortLink(ctx context.Context, targetURL string, owner string) (string, error) {\\n  // Generate code\\n  code := generateCode()\\n  \\n  // Save to database\\n  link := Link{Code: code, TargetURL: targetURL, Owner: owner}\\n  ok, err := s.store.PutIfAbsent(ctx, link)\\n  if err != nil {\\n    return \\"\\", err\\n  }\\n  \\n  return code, nil\\n}\\n```"]
+}
+
+❌ WRONG FORMAT (DO NOT return separate snippets):
+{
+  "type": "high_level_code",
+  "content": [
+    "type Server struct { store LinkStore }",
+    "type LinkStore interface { PutIfAbsent() }",
+    "type Cache interface { Get() }"
+  ]
+}
+
+❌ WRONG FORMAT (DO NOT forget markdown fences):
+{
+  "type": "high_level_code",
+  "content": ["package main\\n\\ntype Server struct {\\n  store LinkStore\\n}"]
+}
+
+❌ CRITICAL ERROR (DO NOT stringify the array):
+{
+  "type": "high_level_code",
+  "content": "[\\\"```golang\\\\ncode\\\\n```\\\"]"
+}
+
+🔴 MANDATORY RULES (MUST FOLLOW):
+1. content MUST be a real JSON array, NOT a stringified array
+2. ONE string element in content array - not multiple strings
+3. ALL code (imports, structs, interfaces, functions) goes in that ONE string
+4. Start with: ```golang\\n
+5. End with: \\n```
+6. Use \\n for line breaks between code lines
+7. Escape quotes as \\"
+8. Include complete, working code structure
+
 CODE QUALITY:
 - Show main structs, interfaces, and their relationships
 - Include key methods and functions
@@ -477,13 +526,41 @@ CODE QUALITY:
 """
         case 7:
             return """
-PHASE 7 — LOW LEVEL CODE (OPTIONAL)
+PHASE 7 — LOW LEVEL CODE
 
 Using all previous phases as context.
 Only generate if explicitly requested.
 
 Sections required:
 - low_level_code
+
+✅ CORRECT FORMAT (Complete example with multiple structs/interfaces):
+{
+  "type": "high_level_code",
+  "content": ["```golang\\npackage main\\n\\nimport (\\n  \\"context\\"\\n  \\"time\\"\\n)\\n\\n// Server is the main HTTP server\\ntype Server struct {\\n  store LinkStore\\n  cache Cache\\n}\\n\\n// Link represents a URL mapping\\ntype Link struct {\\n  Code      string\\n  TargetURL string\\n  Owner     string\\n  CreatedAt time.Time\\n}\\n\\n// LinkStore is the database abstraction\\ntype LinkStore interface {\\n  PutIfAbsent(ctx context.Context, link Link) (bool, error)\\n  GetByCode(ctx context.Context, code string) (*Link, error)\\n}\\n\\n// Cache is an in-memory store\\ntype Cache interface {\\n  Get(ctx context.Context, key string) (string, bool, error)\\n  Set(ctx context.Context, key string, value string, ttl time.Duration) error\\n}\\n\\nfunc (s *Server) CreateShortLink(ctx context.Context, targetURL string, owner string) (string, error) {\\n  // Generate code\\n  code := generateCode()\\n  \\n  // Save to database\\n  link := Link{Code: code, TargetURL: targetURL, Owner: owner}\\n  ok, err := s.store.PutIfAbsent(ctx, link)\\n  if err != nil {\\n    return \\"\\", err\\n  }\\n  \\n  return code, nil\\n}\\n```"]
+}
+
+❌ WRONG FORMAT (DO NOT return separate snippets):
+{
+  "type": "low_level_code",
+  "content": [
+    "type Server struct { store LinkStore }",
+    "type LinkStore interface { PutIfAbsent() }",
+    "type Cache interface { Get() }"
+  ]
+}
+
+❌ WRONG FORMAT (DO NOT forget markdown fences):
+{
+  "type": "low_level_code",
+  "content": ["package main\\n\\ntype Server struct {\\n  store LinkStore\\n}"]
+}
+
+❌ CRITICAL ERROR (DO NOT stringify the array):
+{
+  "type": "low_level_code",
+  "content": "[\\\"```golang\\\\ncode\\\\n```\\\"]"
+}
 
 CODE QUALITY:
 - Complete working implementation
@@ -493,6 +570,7 @@ CODE QUALITY:
 - Comments for complex logic
 - Follow best practices
 - Show complete request/response flow
+- Use \(language.rawValue) for all code
 """
         default:
             return """

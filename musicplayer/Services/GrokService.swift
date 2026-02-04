@@ -170,10 +170,12 @@ final class GrokService {
         AsyncThrowingStream { continuation in
             Task {
                 do {
+                    _ = includeOptionalCodePhase
                     // Phase 1: Requirements
                     let requirementsPrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
                         phase: 1,
-                        question: prompt
+                        question: prompt,
+                        language: language
                     )
                     
                     for try await response in streamGrokResponse(
@@ -188,7 +190,8 @@ final class GrokService {
                     // Phase 2: Main components
                     let componentsPrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
                         phase: 2,
-                        question: prompt
+                        question: prompt,
+                        language: language
                     )
                     
                     for try await response in streamGrokResponse(
@@ -203,7 +206,8 @@ final class GrokService {
                     // Phase 3: Data flow
                     let dataFlowPrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
                         phase: 3,
-                        question: prompt
+                        question: prompt,
+                        language: language
                     )
                     
                     for try await response in streamGrokResponse(
@@ -218,7 +222,8 @@ final class GrokService {
                     // Phase 4: Trade-offs
                     let tradeOffsPrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
                         phase: 4,
-                        question: prompt
+                        question: prompt,
+                        language: language
                     )
                     
                     for try await response in streamGrokResponse(
@@ -233,7 +238,8 @@ final class GrokService {
                     // Phase 5: Scalability
                     let scalabilityPrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
                         phase: 5,
-                        question: prompt
+                        question: prompt,
+                        language: language
                     )
                     
                     for try await response in streamGrokResponse(
@@ -248,7 +254,8 @@ final class GrokService {
                     // Phase 6: High-level code
                     let highLevelCodePrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
                         phase: 6,
-                        question: prompt
+                        question: prompt,
+                        language: language
                     )
                     
                     for try await response in streamGrokResponse(
@@ -260,21 +267,20 @@ final class GrokService {
                         continuation.yield(response)
                     }
                     
-                    // Optional Phase 7: Low-level code
-                    if includeOptionalCodePhase {
-                        let lowLevelCodePrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
-                            phase: 7,
-                            question: prompt
-                        )
-                        
-                        for try await response in streamGrokResponse(
-                            systemPrompt: PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language),
-                            prompt: lowLevelCodePrompt,
-                            language: language,
-                            imageData: nil
-                        ) {
-                            continuation.yield(response)
-                        }
+                    // Phase 7: Low-level code (always included)
+                    let lowLevelCodePrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
+                        phase: 7,
+                        question: prompt,
+                        language: language
+                    )
+                    
+                    for try await response in streamGrokResponse(
+                        systemPrompt: PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language),
+                        prompt: lowLevelCodePrompt,
+                        language: language,
+                        imageData: nil
+                    ) {
+                        continuation.yield(response)
                     }
                     
                     continuation.finish()

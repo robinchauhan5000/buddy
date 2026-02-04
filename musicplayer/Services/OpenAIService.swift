@@ -131,10 +131,11 @@ final class OpenAIService: AIModel {
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
         return AsyncThrowingStream { continuation in
             let task = Task {
+                _ = includeOptionalCodePhase
                 var phaseSections: [Int: [MessageSection]] = [:]
                 var title = ""
                 let baseSystemPrompt = PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language)
-                let lastPhase = includeOptionalCodePhase ? 7 : 6
+                let lastPhase = 7
                 
                 do {
                     for phase in 1...lastPhase {
@@ -143,7 +144,8 @@ final class OpenAIService: AIModel {
                         }
                         let userPrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
                             phase: phase,
-                            question: prompt
+                            question: prompt,
+                            language: language
                         )
                         
                         let phaseStream = streamOpenAIResponse(

@@ -7,11 +7,15 @@
 
 import SwiftUI
 import Combine
+import AppKit
 
 struct InterviewCopilotView: View {
     @StateObject private var viewModel = InterviewCopilotViewModel()
     @StateObject private var chatViewModel = ChatViewModel()
     @State private var showScreenShareVisibleConfirm = false
+    @State private var commandKeyMonitor: Any?
+    @State private var isCommandKeyPressed = false
+    @State private var isShiftKeyPressed = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -69,6 +73,10 @@ struct InterviewCopilotView: View {
                 chatViewModel.currentInput = recognizedText
                 chatViewModel.sendMessage()
             }
+            startCommandKeyMonitor()
+        }
+        .onDisappear {
+            stopCommandKeyMonitor()
         }
     }
 }
@@ -94,5 +102,46 @@ struct VisualEffectBlur: NSViewRepresentable {
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
         nsView.material = material
         nsView.blendingMode = blendingMode
+    }
+}
+
+// MARK: - Command Key Handling
+private extension InterviewCopilotView {
+    func startCommandKeyMonitor() {
+        guard commandKeyMonitor == nil else { return }
+        commandKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.flagsChanged]) { event in
+            handleFlagsChanged(event)
+            return event
+        }
+    }
+    
+    func stopCommandKeyMonitor() {
+        if let monitor = commandKeyMonitor {
+            NSEvent.removeMonitor(monitor)
+            commandKeyMonitor = nil
+        }
+        isCommandKeyPressed = false
+        isShiftKeyPressed = false
+    }
+    
+    func handleFlagsChanged(_ event: NSEvent) {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let isCommandOnly = flags == [.command]
+        let isShiftOnly = flags == [.shift]
+        
+        if isCommandOnly && !isCommandKeyPressed {
+            isCommandKeyPressed = true
+            viewModel.startMicrophoneFromShortcut()
+        } else if !isCommandOnly && isCommandKeyPressed {
+            isCommandKeyPressed = false
+            viewModel.stopMicrophoneFromShortcut()
+        }
+
+        if isShiftOnly && !isShiftKeyPressed {
+            isShiftKeyPressed = true
+            chatViewModel.abortCurrentRequest()
+        } else if !isShiftOnly && isShiftKeyPressed {
+            isShiftKeyPressed = false
+        }
     }
 }
