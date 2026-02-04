@@ -202,6 +202,10 @@ extension AIProvider {
             return "GPT-4 powered responses with vision support"
         case .gemini:
             return "Google's multimodal AI model"
+        case .grok:
+            return "X.AI's Grok-4 with advanced reasoning"
+        case .deepseek:
+            return "DeepSeek's advanced AI with strong coding capabilities"
         }
     }
 }

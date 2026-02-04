@@ -51,6 +51,10 @@ final class AIService: AIServiceProtocol {
             return "/v1/chat/completions"
         case .gemini:
             return "/v1/models/gemini-pro:streamGenerateContent"
+        case .grok:
+            return "/v1/responses"
+        case .deepseek:
+            return "/chat/completions"
         }
     }
     
@@ -71,6 +75,23 @@ final class AIService: AIServiceProtocol {
                     ["parts": [["text": "\(systemPrompt)\n\n\(prompt)"]]]
                 ]
             ]
+        case .grok:
+            return [
+                "model": "grok-4",
+                "input": [
+                    ["role": "system", "content": systemPrompt],
+                    ["role": "user", "content": prompt]
+                ]
+            ]
+        case .deepseek:
+            return [
+                "model": "deepseek-chat",
+                "messages": [
+                    ["role": "system", "content": systemPrompt],
+                    ["role": "user", "content": prompt]
+                ],
+                "stream": false
+            ]
         }
     }
     
@@ -84,6 +105,16 @@ final class AIService: AIServiceProtocol {
         case .gemini:
             return [
                 "Content-Type": "application/json"
+            ]
+        case .grok:
+            return [
+                "Content-Type": "application/json",
+                "Authorization": "Bearer YOUR_API_KEY"
+            ]
+        case .deepseek:
+            return [
+                "Content-Type": "application/json",
+                "Authorization": "Bearer YOUR_API_KEY"
             ]
         }
     }

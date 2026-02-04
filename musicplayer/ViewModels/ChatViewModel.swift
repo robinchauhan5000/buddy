@@ -20,6 +20,8 @@ final class ChatViewModel: ObservableObject {
     private var streamBuffer: String = ""
     private var currentMessageId: UUID?
     private let openAIService: OpenAIService
+    private let grokService: GrokService
+    private let deepseekService: DeepSeekService
     private let speechRecognitionService = SpeechRecognitionService()
     private let screenshotService = ScreenshotService()
     private var recordingBaseText: String = ""
@@ -27,8 +29,12 @@ final class ChatViewModel: ObservableObject {
     private var streamingTask: Task<Void, Never>?
     
     init(apiKey: String? = nil) {
-        let key = apiKey ?? AppConfig.openAIAPIKey
-        self.openAIService = OpenAIService(apiKey: key)
+        let openAIKey = apiKey ?? AppConfig.openAIAPIKey
+        let grokKey = AppConfig.grokAPIKey
+        let deepseekKey = AppConfig.deepseekAPIKey
+        self.openAIService = OpenAIService(apiKey: openAIKey)
+        self.grokService = GrokService(apiKey: grokKey)
+        self.deepseekService = DeepSeekService(apiKey: deepseekKey)
         bindSpeechRecognition()
         bindScreenshotService()
     }
@@ -192,13 +198,44 @@ final class ChatViewModel: ObservableObject {
             // You can extend this to handle multiple images if needed
             let imageData = screenshots.first?.imageData
             
-            let stream = openAIService.streamInterviewResponse(
-                prompt: question,
-                category: selectedCategory,
-                language: selectedLanguage,
-                includeOptionalCodePhase: false,
-                imageData: imageData
-            )
+            let stream: AsyncThrowingStream<StreamingResponse, Error>
+            
+            // Select the appropriate service based on provider
+            switch selectedProvider {
+            case .openAI:
+                stream = openAIService.streamInterviewResponse(
+                    prompt: question,
+                    category: selectedCategory,
+                    language: selectedLanguage,
+                    includeOptionalCodePhase: false,
+                    imageData: imageData
+                )
+            case .grok:
+                stream = grokService.streamInterviewResponse(
+                    prompt: question,
+                    category: selectedCategory,
+                    language: selectedLanguage,
+                    includeOptionalCodePhase: false,
+                    imageData: imageData
+                )
+            case .deepseek:
+                stream = deepseekService.streamInterviewResponse(
+                    prompt: question,
+                    category: selectedCategory,
+                    language: selectedLanguage,
+                    includeOptionalCodePhase: false,
+                    imageData: imageData
+                )
+            case .gemini:
+                // Fallback to OpenAI for now
+                stream = openAIService.streamInterviewResponse(
+                    prompt: question,
+                    category: selectedCategory,
+                    language: selectedLanguage,
+                    includeOptionalCodePhase: false,
+                    imageData: imageData
+                )
+            }
             
             for try await response in stream {
                 updateStreamingMessage(
@@ -251,6 +288,12 @@ final class ChatViewModel: ObservableObject {
     
     private func handleError(messageId: UUID, error: Error) {
         guard let index = messages.firstIndex(where: { $0.id == messageId }) else { return }
+        
+        // Log the error for debugging
+        print("AI Service Error: \(error)")
+        if let httpError = error as? HTTPError {
+            print("HTTP Error details: \(httpError.localizedDescription)")
+        }
         
         messages[index] = ChatMessage(
             id: messageId,

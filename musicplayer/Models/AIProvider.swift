@@ -10,6 +10,8 @@ import Foundation
 enum AIProvider: String, CaseIterable, Identifiable {
     case openAI = "OpenAI"
     case gemini = "Gemini"
+    case grok = "Grok"
+    case deepseek = "DeepSeek"
     
     var id: String { rawValue }
 }
