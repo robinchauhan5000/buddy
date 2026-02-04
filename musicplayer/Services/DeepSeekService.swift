@@ -19,7 +19,7 @@ final class DeepSeekService {
         // Log API key status for debugging
         if apiKey.isEmpty {
             print("⚠️ WARNING: DeepSeek API key is empty!")
-            print("   Please set DEEPSEEK_API_KEY environment variable")
+            print("   Please add your DeepSeek key in the app settings")
         } else {
             print("✓ DeepSeek API key loaded")
             print("  Length: \(apiKey.count) characters")

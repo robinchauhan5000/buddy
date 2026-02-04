@@ -40,6 +40,12 @@ struct ChatView: View {
                     Spacer()
                 }
                 .padding(.vertical, DesignSystem.Spacing.sm)
+                .background(
+                    RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.lg)
+                        .fill(DesignSystem.Colors.secondaryBackground)
+                        .shadow(color: Color.black.opacity(0.12), radius: 8, x: 0, y: 4)
+                )
+                .padding(.horizontal, DesignSystem.Spacing.xl)
             }
             
             ChatInputView(

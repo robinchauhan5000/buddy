@@ -19,7 +19,7 @@ final class GrokService {
         // Log API key status for debugging
         if apiKey.isEmpty {
             print("⚠️ WARNING: Grok API key is empty!")
-            print("   Please set GROK_API_KEY or XAI_API_KEY environment variable")
+            print("   Please add your Grok key in the app settings")
         } else {
             print("✓ Grok API key loaded")
             print("  Length: \(apiKey.count) characters")

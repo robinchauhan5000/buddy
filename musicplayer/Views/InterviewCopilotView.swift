@@ -46,9 +46,8 @@ struct InterviewCopilotView: View {
         )
         .sheet(isPresented: $viewModel.showSettings) {
             SettingsView(
-                selectedProvider: $chatViewModel.selectedProvider,
-                selectedCategory: $chatViewModel.selectedCategory,
-                selectedLanguage: $chatViewModel.selectedLanguage
+                viewModel: chatViewModel,
+                isScreenShareHidden: viewModel.isScreenShareHidden
             )
         }
         .confirmationDialog(

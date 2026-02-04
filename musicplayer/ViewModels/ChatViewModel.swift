@@ -19,9 +19,9 @@ final class ChatViewModel: ObservableObject {
     
     private var streamBuffer: String = ""
     private var currentMessageId: UUID?
-    private let openAIService: OpenAIService
-    private let grokService: GrokService
-    private let deepseekService: DeepSeekService
+    private var openAIService: OpenAIService
+    private var grokService: GrokService
+    private var deepseekService: DeepSeekService
     private let speechRecognitionService = SpeechRecognitionService()
     private let screenshotService = ScreenshotService()
     private var recordingBaseText: String = ""
@@ -37,6 +37,14 @@ final class ChatViewModel: ObservableObject {
         self.deepseekService = DeepSeekService(apiKey: deepseekKey)
         bindSpeechRecognition()
         bindScreenshotService()
+    }
+    
+    func refreshServices() {
+        // Reinitialize services with updated API keys from AppConfig
+        openAIService = OpenAIService(apiKey: AppConfig.openAIAPIKey)
+        grokService = GrokService(apiKey: AppConfig.grokAPIKey)
+        deepseekService = DeepSeekService(apiKey: AppConfig.deepseekAPIKey)
+        print("✓ Services refreshed with updated API keys")
     }
     
     func sendMessage() {
