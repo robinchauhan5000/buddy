@@ -16,6 +16,7 @@ final class ChatViewModel: ObservableObject {
     @Published var selectedProvider: AIProvider = .openAI
     @Published var selectedLanguage: ProgrammingLanguage = .golang
     @Published var capturedScreenshots: [ScreenshotData] = []
+    @Published var continueConversation: Bool = true
     
     private var streamBuffer: String = ""
     private var currentMessageId: UUID?
@@ -27,6 +28,7 @@ final class ChatViewModel: ObservableObject {
     private var recordingBaseText: String = ""
     private var cancellables: Set<AnyCancellable> = []
     private var streamingTask: Task<Void, Never>?
+    private var conversationHistory = ConversationContextHistory()
     
     init(apiKey: String? = nil) {
         let openAIKey = apiKey ?? AppConfig.openAIAPIKey
@@ -70,7 +72,7 @@ final class ChatViewModel: ObservableObject {
         let questionText = currentInput
         let screenshots = capturedScreenshots
         currentInput = ""
-        capturedScreenshots.removeAll()
+        screenshotService.clearAllScreenshots()
         isProcessing = true
         
         streamingTask?.cancel()
@@ -104,12 +106,13 @@ final class ChatViewModel: ObservableObject {
             isRecording = false
         }
         recordingBaseText = ""
+        conversationHistory.clearHistory()
     }
 
     func clearInput() {
         currentInput = ""
         recordingBaseText = ""
-        capturedScreenshots.removeAll()
+        screenshotService.clearAllScreenshots()
         streamingTask?.cancel()
         streamingTask = nil
         stopStreamingState()
@@ -132,7 +135,7 @@ final class ChatViewModel: ObservableObject {
     }
     
     func removeScreenshot(_ screenshot: ScreenshotData) {
-        capturedScreenshots.removeAll { $0.id == screenshot.id }
+        screenshotService.removeScreenshot(screenshot)
     }
 
     func abortCurrentRequest() {
@@ -202,9 +205,17 @@ final class ChatViewModel: ObservableObject {
     
     private func streamAIResponse(messageId: UUID, question: String, screenshots: [ScreenshotData] = []) async {
         do {
-            // For multiple screenshots, we'll use the first one for now
-            // You can extend this to handle multiple images if needed
             let imageData = screenshots.first?.imageData
+            
+            // Get conversation context if enabled
+            let contextData = continueConversation ? conversationHistory.getContextForPrompt() : []
+            
+            // Debug logging
+            if continueConversation {
+                print("✓ Continue Conversation ENABLED - Sending \(contextData.count) context(s) to AI")
+            } else {
+                print("○ Continue Conversation DISABLED - No context sent to AI")
+            }
             
             let stream: AsyncThrowingStream<StreamingResponse, Error>
             
@@ -216,7 +227,8 @@ final class ChatViewModel: ObservableObject {
                     category: selectedCategory,
                     language: selectedLanguage,
                     includeOptionalCodePhase: false,
-                    imageData: imageData
+                    imageData: imageData,
+                    conversationContext: contextData
                 )
             case .grok:
                 stream = grokService.streamInterviewResponse(
@@ -224,7 +236,8 @@ final class ChatViewModel: ObservableObject {
                     category: selectedCategory,
                     language: selectedLanguage,
                     includeOptionalCodePhase: false,
-                    imageData: imageData
+                    imageData: imageData,
+                    conversationContext: contextData
                 )
             case .deepseek:
                 stream = deepseekService.streamInterviewResponse(
@@ -232,7 +245,8 @@ final class ChatViewModel: ObservableObject {
                     category: selectedCategory,
                     language: selectedLanguage,
                     includeOptionalCodePhase: false,
-                    imageData: imageData
+                    imageData: imageData,
+                    conversationContext: contextData
                 )
             case .gemini:
                 // Fallback to OpenAI for now
@@ -241,7 +255,8 @@ final class ChatViewModel: ObservableObject {
                     category: selectedCategory,
                     language: selectedLanguage,
                     includeOptionalCodePhase: false,
-                    imageData: imageData
+                    imageData: imageData,
+                    conversationContext: contextData
                 )
             }
             
@@ -252,7 +267,7 @@ final class ChatViewModel: ObservableObject {
                 )
             }
             
-            finalizeStreamingMessage(messageId: messageId)
+            finalizeStreamingMessage(messageId: messageId, question: question)
         } catch is CancellationError {
             stopStreamingState()
         } catch {
@@ -277,7 +292,7 @@ final class ChatViewModel: ObservableObject {
         )
     }
     
-    private func finalizeStreamingMessage(messageId: UUID) {
+    private func finalizeStreamingMessage(messageId: UUID, question: String) {
         guard let index = messages.firstIndex(where: { $0.id == messageId }) else { return }
         
         let content = messages[index].content
@@ -289,9 +304,51 @@ final class ChatViewModel: ObservableObject {
             isStreaming: false
         )
         
+        // Extract and save conversation context if enabled
+        if continueConversation, case .structured(let aiResponse) = content {
+            let context = extractConversationContext(
+                question: question,
+                response: aiResponse
+            )
+            conversationHistory.addContext(context)
+            print("💾 Context saved - Total contexts: \(conversationHistory.count)")
+        } else if !continueConversation {
+            print("○ Context NOT saved - Continue Conversation is disabled")
+        }
+        
         isProcessing = false
         streamBuffer = ""
         currentMessageId = nil
+    }
+    
+    private func extractConversationContext(
+        question: String,
+        response: AIResponse
+    ) -> ConversationContext {
+        // Extract technical summary from response sections
+        let technicalSummary = response.sections
+            .compactMap { section -> String? in
+                switch section.content {
+                case .text(let text):
+                    return text
+                case .list(let items):
+                    return items.joined(separator: " ")
+                }
+            }
+            .prefix(3)
+            .joined(separator: " ")
+            .prefix(200)
+        
+        let conversationSummary = "Question: \(question.prefix(150))"
+        
+        return ConversationContext(
+            conversationSummary: conversationSummary,
+            previousAnswerSummary: PreviousAnswerSummary(
+                aiTechnicalSummary: String(technicalSummary)
+            ),
+            currentIntent: "deep_dive",
+            relatedToPrevious: true
+        )
     }
     
     private func handleError(messageId: UUID, error: Error) {

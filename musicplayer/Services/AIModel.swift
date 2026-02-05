@@ -13,6 +13,7 @@ protocol AIModel {
         category: Category,
         language: ProgrammingLanguage,
         includeOptionalCodePhase: Bool,
-        imageData: Data?
+        imageData: Data?,
+        conversationContext: [[String: Any]]
     ) -> AsyncThrowingStream<StreamingResponse, Error>
 }

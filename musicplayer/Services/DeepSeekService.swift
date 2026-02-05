@@ -48,7 +48,7 @@ final class DeepSeekService {
         
         if imageData != nil {
             systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt)
-            userPrompt = "Analyze this image and provide the answer in the specified JSON format."
+            userPrompt = prompt.isEmpty ? "Analyze this image and provide the answer in the specified JSON format." : prompt
         } else if category == .systemDesign {
             systemPrompt = PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language)
             userPrompt = PromptBuilder.buildSystemDesignFullUserPrompt(question: prompt)
@@ -133,7 +133,8 @@ final class DeepSeekService {
         category: Category,
         language: ProgrammingLanguage,
         includeOptionalCodePhase: Bool = false,
-        imageData: Data? = nil
+        imageData: Data? = nil,
+        conversationContext: [[String: Any]] = []
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
         if category == .systemDesign && imageData == nil {
             return streamPhasedSystemDesign(
@@ -148,7 +149,7 @@ final class DeepSeekService {
         
         if imageData != nil {
             systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt)
-            userPrompt = "Analyze this image and provide the answer in the specified JSON format."
+            userPrompt = prompt.isEmpty ? "Analyze this image and provide the answer in the specified JSON format." : prompt
         } else {
             systemPrompt = PromptBuilder.buildSystemPrompt(for: category, language: language)
             userPrompt = prompt

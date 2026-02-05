@@ -12,6 +12,7 @@ struct HeaderView: View {
     @Binding var selectedProvider: AIProvider
     @Binding var selectedCategory: Category
     @Binding var selectedLanguage: ProgrammingLanguage
+    @Binding var continueConversation: Bool
     let onCopy: () -> Void
     let onToggleScreenShareVisibility: () -> Void
     let onMicrophone: () -> Void
@@ -100,6 +101,26 @@ struct HeaderView: View {
                     CategoryPicker(selectedCategory: $selectedCategory)
                 }
                 
+                HStack(spacing: DesignSystem.Spacing.md) {
+                    Toggle(isOn: $continueConversation) {
+                        HStack(spacing: DesignSystem.Spacing.xs) {
+                            Image(systemName: continueConversation ? "arrow.triangle.turn.up.right.circle.fill" : "arrow.triangle.turn.up.right.circle")
+                                .font(.system(size: DesignSystem.FontSize.md))
+                            Text("Continue Conversation")
+                                .font(.system(size: DesignSystem.FontSize.sm, weight: .medium))
+                        }
+                        .foregroundColor(continueConversation ? DesignSystem.Colors.accent : DesignSystem.Colors.textSecondary)
+                    }
+                    .toggleStyle(.button)
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, DesignSystem.Spacing.md)
+                    .padding(.vertical, DesignSystem.Spacing.sm)
+                    .background(
+                        RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                            .fill(continueConversation ? DesignSystem.Colors.accent.opacity(0.1) : DesignSystem.Colors.tertiaryBackground)
+                    )
+                }
+                
                 Spacer()
             }
         }
@@ -113,12 +134,14 @@ struct HeaderView: View {
     @Previewable @State var provider: AIProvider = .openAI
     @Previewable @State var category: Category = .normal
     @Previewable @State var language: ProgrammingLanguage = .golang
+    @Previewable @State var continueConversation: Bool = true
     
     HeaderView(
         sessionState: .active,
         selectedProvider: $provider,
         selectedCategory: $category,
         selectedLanguage: $language,
+        continueConversation: $continueConversation,
         onCopy: {},
         onToggleScreenShareVisibility: {},
         onMicrophone: {},

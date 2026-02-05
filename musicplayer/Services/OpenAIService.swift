@@ -29,7 +29,7 @@ final class OpenAIService: AIModel {
         
         if imageData != nil {
             systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt)
-            userPrompt = "Analyze this image and provide the answer in the specified JSON format."
+            userPrompt = prompt.isEmpty ? "Analyze this image and provide the answer in the specified JSON format." : prompt
         } else if category == .systemDesign {
             systemPrompt = PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language)
             userPrompt = PromptBuilder.buildSystemDesignFullUserPrompt(question: prompt)
@@ -95,13 +95,15 @@ final class OpenAIService: AIModel {
         category: Category,
         language: ProgrammingLanguage,
         includeOptionalCodePhase: Bool = false,
-        imageData: Data? = nil
+        imageData: Data? = nil,
+        conversationContext: [[String: Any]] = []
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
         if category == .systemDesign && imageData == nil {
             return streamPhasedSystemDesign(
                 prompt: prompt,
                 language: language,
-                includeOptionalCodePhase: includeOptionalCodePhase
+                includeOptionalCodePhase: includeOptionalCodePhase,
+                conversationContext: conversationContext
             )
         }
         
@@ -110,7 +112,7 @@ final class OpenAIService: AIModel {
         
         if imageData != nil {
             systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt)
-            userPrompt = "Analyze this image and provide the answer in the specified JSON format."
+            userPrompt = prompt.isEmpty ? "Analyze this image and provide the answer in the specified JSON format." : prompt
         } else {
             systemPrompt = PromptBuilder.buildSystemPrompt(for: category, language: language)
             userPrompt = prompt
@@ -120,14 +122,16 @@ final class OpenAIService: AIModel {
             systemPrompt: systemPrompt,
             prompt: userPrompt,
             language: language,
-            imageData: imageData
+            imageData: imageData,
+            conversationContext: conversationContext
         )
     }
     
     private func streamPhasedSystemDesign(
         prompt: String,
         language: ProgrammingLanguage,
-        includeOptionalCodePhase: Bool
+        includeOptionalCodePhase: Bool,
+        conversationContext: [[String: Any]]
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
         return AsyncThrowingStream { continuation in
             let task = Task {
@@ -135,7 +139,7 @@ final class OpenAIService: AIModel {
                 var phaseSections: [Int: [MessageSection]] = [:]
                 var title = ""
                 let baseSystemPrompt = PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language)
-                let lastPhase = 7
+                let lastPhase = 15
                 
                 do {
                     for phase in 1...lastPhase {
@@ -152,7 +156,8 @@ final class OpenAIService: AIModel {
                             systemPrompt: baseSystemPrompt,
                             prompt: userPrompt,
                             language: language,
-                            imageData: nil
+                            imageData: nil,
+                            conversationContext: conversationContext
                         )
                         
                         for try await phaseResponse in phaseStream {
@@ -204,7 +209,8 @@ final class OpenAIService: AIModel {
         systemPrompt: String,
         prompt: String,
         language: ProgrammingLanguage,
-        imageData: Data?
+        imageData: Data?,
+        conversationContext: [[String: Any]] = []
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
         return AsyncThrowingStream { continuation in
             let task = Task {
@@ -222,6 +228,25 @@ final class OpenAIService: AIModel {
                 var messages: [[String: Any]] = [
                     ["role": "system", "content": systemPrompt]
                 ]
+                
+                // Add conversation context if available
+                if !conversationContext.isEmpty {
+                    print("📝 OpenAI: Injecting \(conversationContext.count) conversation context(s)")
+                    let contextString = conversationContext.map { context in
+                        if let jsonData = try? JSONSerialization.data(withJSONObject: context),
+                           let jsonString = String(data: jsonData, encoding: .utf8) {
+                            return jsonString
+                        }
+                        return ""
+                    }.joined(separator: "\n")
+                    
+                    messages.append([
+                        "role": "system",
+                        "content": "Previous conversation context:\n\(contextString)"
+                    ])
+                } else {
+                    print("📝 OpenAI: No conversation context - sending fresh request")
+                }
                 
                 if let imageData = imageData {
                     let base64Image = imageData.base64EncodedString()
