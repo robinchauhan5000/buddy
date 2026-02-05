@@ -146,11 +146,23 @@ final class OpenAIService: AIModel {
                         if Task.isCancelled {
                             throw CancellationError()
                         }
+                        
+                        print("\n🔵 ========== PHASE \(phase)/\(lastPhase) START ==========")
+                        
                         let userPrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
                             phase: phase,
                             question: prompt,
                             language: language
                         )
+                        
+                        print("📝 System Prompt Length: \(baseSystemPrompt.count) characters")
+                        print("📝 User Prompt Length: \(userPrompt.count) characters")
+                        print("📝 Total Prompt Size: ~\((baseSystemPrompt.count + userPrompt.count) / 1024) KB")
+                        print("\n--- SYSTEM PROMPT ---")
+                        print(baseSystemPrompt)
+                        print("\n--- USER PROMPT ---")
+                        print(userPrompt)
+                        print("--- END PROMPTS ---\n")
                         
                         let phaseStream = streamOpenAIResponse(
                             systemPrompt: baseSystemPrompt,
@@ -166,10 +178,23 @@ final class OpenAIService: AIModel {
                             }
                             if title.isEmpty && !phaseResponse.title.isEmpty {
                                 title = phaseResponse.title
+                                print("📌 Title set: \(title)")
                             }
                             phaseSections[phase] = phaseResponse.sections
                             
+                            print("✅ Phase \(phase) received \(phaseResponse.sections.count) section(s)")
+                            for section in phaseResponse.sections {
+                                print("   - \(section.type)")
+                            }
+                            
+                            print("📊 Current phaseSections state:")
+                            for (p, sections) in phaseSections.sorted(by: { $0.key < $1.key }) {
+                                print("   Phase \(p): \(sections.count) section(s)")
+                            }
+                            
                             let mergedSections = mergePhaseSections(phaseSections)
+                            print("📊 Merged sections total: \(mergedSections.count)")
+                            
                             continuation.yield(
                                 StreamingResponse(
                                     title: title,
@@ -178,7 +203,12 @@ final class OpenAIService: AIModel {
                                 )
                             )
                         }
+                        
+                        print("🔵 ========== PHASE \(phase)/\(lastPhase) COMPLETE ==========\n")
                     }
+                    
+                    print("\n🎉 ALL PHASES COMPLETE!")
+                    print("📊 Total sections collected: \(phaseSections.values.flatMap { $0 }.count)")
                     
                     let finalSections = mergePhaseSections(phaseSections)
                     continuation.yield(
@@ -190,6 +220,7 @@ final class OpenAIService: AIModel {
                     )
                     continuation.finish()
                 } catch {
+                    print("❌ ERROR in phased system design: \(error)")
                     continuation.finish(throwing: error)
                 }
             }
@@ -297,15 +328,30 @@ final class OpenAIService: AIModel {
                     }
                     
                     let parser = StreamingResponseParser()
+                    var chunkCount = 0
+                    var totalContent = ""
+                    
+                    print("🌊 Starting to receive SSE stream...")
+                    
+                    var lastLineWasDone = false
                     
                     for try await line in bytes.lines {
                         if Task.isCancelled {
                             throw CancellationError()
                         }
+                        
+                        if line.isEmpty {
+                            continue
+                        }
+                        
                         if line.hasPrefix("data: ") {
                             let data = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
                             
                             if data == "[DONE]" {
+                                print("🏁 Received [DONE] signal")
+                                print("📊 Total chunks received: \(chunkCount)")
+                                print("📊 Total content length: \(totalContent.count) chars")
+                                lastLineWasDone = true
                                 if let response = parser.finalize() {
                                     continuation.yield(response)
                                 }
@@ -321,14 +367,36 @@ final class OpenAIService: AIModel {
                                 continue
                             }
                             
+                            chunkCount += 1
+                            totalContent.append(content)
+                            
+                            if chunkCount % 50 == 0 {
+                                print("📦 Chunk #\(chunkCount): +\(content.count) chars (total: \(totalContent.count))")
+                            }
+                            
                             if let response = parser.addChunk(content) {
                                 continuation.yield(response)
                             }
                         }
                     }
                     
+                    if !lastLineWasDone {
+                        print("⚠️ Stream ended WITHOUT [DONE] signal!")
+                        print("📊 Total chunks received: \(chunkCount)")
+                        print("📊 Total content length: \(totalContent.count) chars")
+                        print("🔍 Attempting to finalize anyway...")
+                        if let response = parser.finalize() {
+                            continuation.yield(response)
+                        }
+                    }
+                    
+                    print("✅ Stream processing complete")
+                    
+                    print("✅ Stream processing complete")
+                    
                     continuation.finish()
                 } catch {
+                    print("❌ ERROR in streamOpenAIResponse: \(error)")
                     continuation.finish(throwing: error)
                 }
             }

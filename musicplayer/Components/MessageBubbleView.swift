@@ -157,7 +157,7 @@ struct MessageBubbleView: View {
             
             switch section.content {
             case .text(let text):
-                if section.type == .code || section.type == .highLevelCode || section.type == .lowLevelCode {
+                if section.type == .code {
                     codeBlockView(text, language: section.language)
                 } else {
                     textContentView(text)

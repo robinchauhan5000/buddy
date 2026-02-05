@@ -34,10 +34,9 @@ final class AIService: AIServiceProtocol {
                 endpoint,
                 body: body,
                 headers: getHeaders(for: provider)
-            ) { data in
-                if let chunk = String(data: data, encoding: .utf8) {
-                    onChunk(chunk)
-                }
+            ) { jsonPayload in
+                // jsonPayload is now a complete JSON string, not raw bytes
+                onChunk(jsonPayload)
             }
             onComplete()
         } catch {

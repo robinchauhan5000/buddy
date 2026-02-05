@@ -168,128 +168,96 @@ final class GrokService {
         language: ProgrammingLanguage,
         includeOptionalCodePhase: Bool
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
-        AsyncThrowingStream { continuation in
-            Task {
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                _ = includeOptionalCodePhase
+                var phaseSections: [Int: [MessageSection]] = [:]
+                var title = ""
+                let baseSystemPrompt = PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language)
+                let lastPhase = 15
+                
                 do {
-                    _ = includeOptionalCodePhase
-                    // Phase 1: Requirements
-                    let requirementsPrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
-                        phase: 1,
-                        question: prompt,
-                        language: language
-                    )
-                    
-                    for try await response in streamGrokResponse(
-                        systemPrompt: PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language),
-                        prompt: requirementsPrompt,
-                        language: language,
-                        imageData: nil
-                    ) {
-                        continuation.yield(response)
+                    for phase in 1...lastPhase {
+                        if Task.isCancelled {
+                            throw CancellationError()
+                        }
+                        
+                        print("\n🔵 ========== PHASE \(phase)/\(lastPhase) START ==========")
+                        
+                        let userPrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
+                            phase: phase,
+                            question: prompt,
+                            language: language
+                        )
+                        
+                        print("📝 System Prompt Length: \(baseSystemPrompt.count) characters")
+                        print("📝 User Prompt Length: \(userPrompt.count) characters")
+                        print("📝 Total Prompt Size: ~\((baseSystemPrompt.count + userPrompt.count) / 1024) KB")
+                        
+                        let phaseStream = streamGrokResponse(
+                            systemPrompt: baseSystemPrompt,
+                            prompt: userPrompt,
+                            language: language,
+                            imageData: nil
+                        )
+                        
+                        for try await phaseResponse in phaseStream {
+                            if Task.isCancelled {
+                                throw CancellationError()
+                            }
+                            if title.isEmpty && !phaseResponse.title.isEmpty {
+                                title = phaseResponse.title
+                                print("📌 Title set: \(title)")
+                            }
+                            phaseSections[phase] = phaseResponse.sections
+                            
+                            print("✅ Phase \(phase) received \(phaseResponse.sections.count) section(s)")
+                            for section in phaseResponse.sections {
+                                print("   - \(section.type)")
+                            }
+                            
+                            let mergedSections = mergePhaseSections(phaseSections)
+                            print("📊 Merged sections total: \(mergedSections.count)")
+                            
+                            continuation.yield(
+                                StreamingResponse(
+                                    title: title,
+                                    sections: mergedSections,
+                                    isComplete: false
+                                )
+                            )
+                        }
+                        
+                        print("🔵 ========== PHASE \(phase)/\(lastPhase) COMPLETE ==========\n")
                     }
                     
-                    // Phase 2: Main components
-                    let componentsPrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
-                        phase: 2,
-                        question: prompt,
-                        language: language
+                    print("\n🎉 ALL PHASES COMPLETE!")
+                    print("📊 Total sections collected: \(phaseSections.values.flatMap { $0 }.count)")
+                    
+                    let finalSections = mergePhaseSections(phaseSections)
+                    continuation.yield(
+                        StreamingResponse(
+                            title: title,
+                            sections: finalSections,
+                            isComplete: true
+                        )
                     )
-                    
-                    for try await response in streamGrokResponse(
-                        systemPrompt: PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language),
-                        prompt: componentsPrompt,
-                        language: language,
-                        imageData: nil
-                    ) {
-                        continuation.yield(response)
-                    }
-                    
-                    // Phase 3: Data flow
-                    let dataFlowPrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
-                        phase: 3,
-                        question: prompt,
-                        language: language
-                    )
-                    
-                    for try await response in streamGrokResponse(
-                        systemPrompt: PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language),
-                        prompt: dataFlowPrompt,
-                        language: language,
-                        imageData: nil
-                    ) {
-                        continuation.yield(response)
-                    }
-                    
-                    // Phase 4: Trade-offs
-                    let tradeOffsPrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
-                        phase: 4,
-                        question: prompt,
-                        language: language
-                    )
-                    
-                    for try await response in streamGrokResponse(
-                        systemPrompt: PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language),
-                        prompt: tradeOffsPrompt,
-                        language: language,
-                        imageData: nil
-                    ) {
-                        continuation.yield(response)
-                    }
-                    
-                    // Phase 5: Scalability
-                    let scalabilityPrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
-                        phase: 5,
-                        question: prompt,
-                        language: language
-                    )
-                    
-                    for try await response in streamGrokResponse(
-                        systemPrompt: PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language),
-                        prompt: scalabilityPrompt,
-                        language: language,
-                        imageData: nil
-                    ) {
-                        continuation.yield(response)
-                    }
-                    
-                    // Phase 6: High-level code
-                    let highLevelCodePrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
-                        phase: 6,
-                        question: prompt,
-                        language: language
-                    )
-                    
-                    for try await response in streamGrokResponse(
-                        systemPrompt: PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language),
-                        prompt: highLevelCodePrompt,
-                        language: language,
-                        imageData: nil
-                    ) {
-                        continuation.yield(response)
-                    }
-                    
-                    // Phase 7: Low-level code (always included)
-                    let lowLevelCodePrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
-                        phase: 7,
-                        question: prompt,
-                        language: language
-                    )
-                    
-                    for try await response in streamGrokResponse(
-                        systemPrompt: PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language),
-                        prompt: lowLevelCodePrompt,
-                        language: language,
-                        imageData: nil
-                    ) {
-                        continuation.yield(response)
-                    }
-                    
                     continuation.finish()
                 } catch {
+                    print("❌ ERROR in phased system design: \(error)")
                     continuation.finish(throwing: error)
                 }
             }
+            
+            continuation.onTermination = { _ in
+                task.cancel()
+            }
         }
+    }
+    
+    private func mergePhaseSections(_ phaseSections: [Int: [MessageSection]]) -> [MessageSection] {
+        let phases = phaseSections.keys.sorted()
+        return phases.flatMap { phaseSections[$0] ?? [] }
     }
     
     private func streamGrokResponse(

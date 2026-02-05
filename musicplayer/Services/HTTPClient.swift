@@ -95,7 +95,7 @@ final class HTTPClient {
         _ endpoint: String,
         body: [String: Any]? = nil,
         headers: [String: String]? = nil,
-        onChunk: @escaping (Data) -> Void
+        onEvent: @escaping (String) -> Void
     ) async throws {
         guard let url = URL(string: baseURL + endpoint) else {
             throw HTTPError.invalidURL
@@ -103,7 +103,12 @@ final class HTTPClient {
         
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.allHTTPHeaderFields = mergeHeaders(headers)
+        
+        // Merge headers with SSE-specific headers
+        var streamHeaders = mergeHeaders(headers)
+        streamHeaders["Accept"] = "text/event-stream"
+        streamHeaders["Cache-Control"] = "no-cache"
+        request.allHTTPHeaderFields = streamHeaders
         
         if let body = body {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -119,8 +124,35 @@ final class HTTPClient {
             throw HTTPError.statusCode(httpResponse.statusCode)
         }
         
+        var buffer = ""
+        
+        // Stream line-by-line, not byte-by-byte
         for try await byte in asyncBytes {
-            onChunk(Data([byte]))
+            try Task.checkCancellation()
+            
+            buffer.append(Character(UnicodeScalar(byte)))
+            
+            // Process complete lines (SSE events end with \n)
+            while buffer.contains("\n") {
+                let parts = buffer.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
+                let line = String(parts[0])
+                buffer = parts.count > 1 ? String(parts[1]) : ""
+                
+                // Skip empty lines and non-data lines
+                guard line.hasPrefix("data: ") else { continue }
+                
+                let payload = line.replacingOccurrences(of: "data: ", with: "").trimmingCharacters(in: .whitespaces)
+                
+                // Check for stream termination
+                if payload == "[DONE]" {
+                    return
+                }
+                
+                // Emit complete JSON payload to caller
+                await MainActor.run {
+                    onEvent(payload)
+                }
+            }
         }
     }
     
