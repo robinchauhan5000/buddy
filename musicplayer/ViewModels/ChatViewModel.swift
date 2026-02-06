@@ -23,6 +23,7 @@ final class ChatViewModel: ObservableObject {
     private var openAIService: OpenAIService
     private var grokService: GrokService
     private var deepseekService: DeepSeekService
+    private var geminiService: GeminiService
     private let speechRecognitionService = SpeechRecognitionService()
     private let screenshotService = ScreenshotService()
     private var recordingBaseText: String = ""
@@ -34,9 +35,11 @@ final class ChatViewModel: ObservableObject {
         let openAIKey = apiKey ?? AppConfig.openAIAPIKey
         let grokKey = AppConfig.grokAPIKey
         let deepseekKey = AppConfig.deepseekAPIKey
+        let geminiKey = AppConfig.geminiAPIKey
         self.openAIService = OpenAIService(apiKey: openAIKey)
         self.grokService = GrokService(apiKey: grokKey)
         self.deepseekService = DeepSeekService(apiKey: deepseekKey)
+        self.geminiService = GeminiService(apiKey: geminiKey)
         bindSpeechRecognition()
         bindScreenshotService()
     }
@@ -46,6 +49,7 @@ final class ChatViewModel: ObservableObject {
         openAIService = OpenAIService(apiKey: AppConfig.openAIAPIKey)
         grokService = GrokService(apiKey: AppConfig.grokAPIKey)
         deepseekService = DeepSeekService(apiKey: AppConfig.deepseekAPIKey)
+        geminiService = GeminiService(apiKey: AppConfig.geminiAPIKey)
         print("✓ Services refreshed with updated API keys")
     }
     
@@ -249,8 +253,7 @@ final class ChatViewModel: ObservableObject {
                     conversationContext: contextData
                 )
             case .gemini:
-                // Fallback to OpenAI for now
-                stream = openAIService.streamInterviewResponse(
+                stream = geminiService.streamInterviewResponse(
                     prompt: question,
                     category: selectedCategory,
                     language: selectedLanguage,

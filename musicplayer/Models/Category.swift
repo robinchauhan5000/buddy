@@ -13,6 +13,7 @@ enum Category: String, CaseIterable, Identifiable {
     case quickAnswers = "Quick Answers interview"
     case trueFalse = "True/False interview"
     case systemDesign = "System Design interview"
+    case scenarioBasedSystemDesign = "Scenario-Based System Design interview"
     case technical = "Technical Discussion interview"
     case coding = "Coding Round interview"
     
