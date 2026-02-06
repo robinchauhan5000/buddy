@@ -96,9 +96,10 @@ final class OpenAIService: AIModel {
         language: ProgrammingLanguage,
         includeOptionalCodePhase: Bool = false,
         imageData: Data? = nil,
-        conversationContext: [[String: Any]] = []
+        conversationContext: [[String: Any]] = [],
+        useInterviewCounterQuestion: Bool = false
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
-        if category == .systemDesign && imageData == nil {
+        if category == .systemDesign && imageData == nil && !useInterviewCounterQuestion {
             return streamPhasedSystemDesign(
                 prompt: prompt,
                 language: language,
@@ -114,7 +115,7 @@ final class OpenAIService: AIModel {
             systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt)
             userPrompt = prompt.isEmpty ? "Analyze this image and provide the answer in the specified JSON format." : prompt
         } else {
-            systemPrompt = PromptBuilder.buildSystemPrompt(for: category, language: language)
+            systemPrompt = PromptBuilder.buildSystemPrompt(for: category, language: language, useInterviewCounterQuestion: useInterviewCounterQuestion)
             userPrompt = prompt
         }
         

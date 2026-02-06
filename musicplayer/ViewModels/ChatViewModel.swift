@@ -17,6 +17,8 @@ final class ChatViewModel: ObservableObject {
     @Published var selectedLanguage: ProgrammingLanguage = .golang
     @Published var capturedScreenshots: [ScreenshotData] = []
     @Published var continueConversation: Bool = true
+    /// When true, uses Interview Counter Question prompt instead of category prompt. When false, category can be selected. Default false.
+    @Published var useInterviewCounterQuestionPrompt: Bool = false
     
     private var streamBuffer: String = ""
     private var currentMessageId: UUID?
@@ -232,7 +234,8 @@ final class ChatViewModel: ObservableObject {
                     language: selectedLanguage,
                     includeOptionalCodePhase: false,
                     imageData: imageData,
-                    conversationContext: contextData
+                    conversationContext: contextData,
+                    useInterviewCounterQuestion: useInterviewCounterQuestionPrompt
                 )
             case .grok:
                 stream = grokService.streamInterviewResponse(
@@ -241,7 +244,8 @@ final class ChatViewModel: ObservableObject {
                     language: selectedLanguage,
                     includeOptionalCodePhase: false,
                     imageData: imageData,
-                    conversationContext: contextData
+                    conversationContext: contextData,
+                    useInterviewCounterQuestion: useInterviewCounterQuestionPrompt
                 )
             case .deepseek:
                 stream = deepseekService.streamInterviewResponse(
@@ -250,7 +254,8 @@ final class ChatViewModel: ObservableObject {
                     language: selectedLanguage,
                     includeOptionalCodePhase: false,
                     imageData: imageData,
-                    conversationContext: contextData
+                    conversationContext: contextData,
+                    useInterviewCounterQuestion: useInterviewCounterQuestionPrompt
                 )
             case .gemini:
                 stream = geminiService.streamInterviewResponse(
@@ -259,7 +264,8 @@ final class ChatViewModel: ObservableObject {
                     language: selectedLanguage,
                     includeOptionalCodePhase: false,
                     imageData: imageData,
-                    conversationContext: contextData
+                    conversationContext: contextData,
+                    useInterviewCounterQuestion: useInterviewCounterQuestionPrompt
                 )
             }
             

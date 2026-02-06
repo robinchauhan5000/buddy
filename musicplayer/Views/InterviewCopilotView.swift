@@ -25,6 +25,7 @@ struct InterviewCopilotView: View {
                 selectedCategory: $chatViewModel.selectedCategory,
                 selectedLanguage: $chatViewModel.selectedLanguage,
                 continueConversation: $chatViewModel.continueConversation,
+                useInterviewCounterQuestionPrompt: $chatViewModel.useInterviewCounterQuestionPrompt,
                 onCopy: chatViewModel.copyAllMessages,
                 onToggleScreenShareVisibility: {
                     if viewModel.isScreenShareHidden {

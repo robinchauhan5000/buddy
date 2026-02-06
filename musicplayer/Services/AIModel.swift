@@ -14,6 +14,7 @@ protocol AIModel {
         language: ProgrammingLanguage,
         includeOptionalCodePhase: Bool,
         imageData: Data?,
-        conversationContext: [[String: Any]]
+        conversationContext: [[String: Any]],
+        useInterviewCounterQuestion: Bool
     ) -> AsyncThrowingStream<StreamingResponse, Error>
 }

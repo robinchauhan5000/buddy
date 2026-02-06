@@ -13,6 +13,7 @@ struct HeaderView: View {
     @Binding var selectedCategory: Category
     @Binding var selectedLanguage: ProgrammingLanguage
     @Binding var continueConversation: Bool
+    @Binding var useInterviewCounterQuestionPrompt: Bool
     let onCopy: () -> Void
     let onToggleScreenShareVisibility: () -> Void
     let onMicrophone: () -> Void
@@ -99,6 +100,28 @@ struct HeaderView: View {
                         .foregroundColor(DesignSystem.Colors.textSecondary)
                     
                     CategoryPicker(selectedCategory: $selectedCategory)
+                        .disabled(useInterviewCounterQuestionPrompt)
+                        .opacity(useInterviewCounterQuestionPrompt ? 0.6 : 1)
+                }
+                
+                HStack(spacing: DesignSystem.Spacing.md) {
+                    Toggle(isOn: $useInterviewCounterQuestionPrompt) {
+                        HStack(spacing: DesignSystem.Spacing.xs) {
+                            Image(systemName: useInterviewCounterQuestionPrompt ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right")
+                                .font(.system(size: DesignSystem.FontSize.md))
+                            Text("Counter Questions")
+                                .font(.system(size: DesignSystem.FontSize.sm, weight: .medium))
+                        }
+                        .foregroundColor(useInterviewCounterQuestionPrompt ? DesignSystem.Colors.accentPurple : DesignSystem.Colors.textSecondary)
+                    }
+                    .toggleStyle(.button)
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, DesignSystem.Spacing.md)
+                    .padding(.vertical, DesignSystem.Spacing.sm)
+                    .background(
+                        RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                            .fill(useInterviewCounterQuestionPrompt ? DesignSystem.Colors.accentPurple.opacity(0.1) : DesignSystem.Colors.tertiaryBackground)
+                    )
                 }
                 
                 HStack(spacing: DesignSystem.Spacing.md) {
@@ -135,6 +158,7 @@ struct HeaderView: View {
     @Previewable @State var category: Category = .normal
     @Previewable @State var language: ProgrammingLanguage = .golang
     @Previewable @State var continueConversation: Bool = true
+    @Previewable @State var useInterviewCounterQuestionPrompt: Bool = false
     
     HeaderView(
         sessionState: .active,
@@ -142,6 +166,7 @@ struct HeaderView: View {
         selectedCategory: $category,
         selectedLanguage: $language,
         continueConversation: $continueConversation,
+        useInterviewCounterQuestionPrompt: $useInterviewCounterQuestionPrompt,
         onCopy: {},
         onToggleScreenShareVisibility: {},
         onMicrophone: {},
