@@ -48,6 +48,8 @@ final class AIService: AIServiceProtocol {
         switch provider {
         case .openAI:
             return "/v1/chat/completions"
+        case .claude:
+            return "/v1/messages"
         case .gemini:
             return "/v1/models/gemini-pro:streamGenerateContent"
         case .grok:
@@ -66,6 +68,14 @@ final class AIService: AIServiceProtocol {
                     ["role": "system", "content": systemPrompt],
                     ["role": "user", "content": prompt]
                 ],
+                "stream": true
+            ]
+        case .claude:
+            return [
+                "model": "claude-sonnet-4-20250514",
+                "max_tokens": 8192,
+                "system": systemPrompt,
+                "messages": [["role": "user", "content": [["type": "text", "text": prompt]]]],
                 "stream": true
             ]
         case .gemini:
@@ -100,6 +110,12 @@ final class AIService: AIServiceProtocol {
             return [
                 "Content-Type": "application/json",
                 "Authorization": "Bearer YOUR_API_KEY"
+            ]
+        case .claude:
+            return [
+                "Content-Type": "application/json",
+                "anthropic-version": "2023-06-01",
+                "x-api-key": "YOUR_API_KEY"
             ]
         case .gemini:
             return [

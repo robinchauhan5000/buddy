@@ -16,6 +16,7 @@ struct SettingsView: View {
     let isScreenShareHidden: Bool
     
     @State private var openAIKey: String = ""
+    @State private var claudeKey: String = ""
     @State private var grokKey: String = ""
     @State private var deepseekKey: String = ""
     @State private var geminiKey: String = ""
@@ -58,6 +59,13 @@ struct SettingsView: View {
                                 placeholder: "sk-...",
                                 value: $openAIKey,
                                 icon: "brain.head.profile"
+                            )
+                            
+                            apiKeyField(
+                                title: "Claude API Key (Anthropic)",
+                                placeholder: "sk-ant-...",
+                                value: $claudeKey,
+                                icon: "bubble.left.and.bubble.right.fill"
                             )
                             
                             apiKeyField(
@@ -169,6 +177,7 @@ struct SettingsView: View {
     
     private func loadAPIKeys() {
         openAIKey = AppConfig.openAIAPIKey
+        claudeKey = AppConfig.claudeAPIKey
         grokKey = AppConfig.grokAPIKey
         deepseekKey = AppConfig.deepseekAPIKey
         geminiKey = AppConfig.geminiAPIKey
@@ -177,6 +186,7 @@ struct SettingsView: View {
         // Debug logging
         print("📥 Loaded API Keys from storage:")
         print("  OpenAI: \(openAIKey.isEmpty ? "Not set" : "Set (\(openAIKey.count) chars)")")
+        print("  Claude: \(claudeKey.isEmpty ? "Not set" : "Set (\(claudeKey.count) chars)")")
         print("  Grok: \(grokKey.isEmpty ? "Not set" : "Set (\(grokKey.count) chars)")")
         print("  DeepSeek: \(deepseekKey.isEmpty ? "Not set" : "Set (\(deepseekKey.count) chars)")")
         print("  Gemini: \(geminiKey.isEmpty ? "Not set" : "Set (\(geminiKey.count) chars)")")
@@ -184,6 +194,7 @@ struct SettingsView: View {
     
     private func saveAPIKeys() {
         AppConfig.openAIAPIKey = openAIKey
+        AppConfig.claudeAPIKey = claudeKey
         AppConfig.grokAPIKey = grokKey
         AppConfig.deepseekAPIKey = deepseekKey
         AppConfig.geminiAPIKey = geminiKey
@@ -191,6 +202,7 @@ struct SettingsView: View {
         // Debug logging
         print("💾 Saved API Keys to storage:")
         print("  OpenAI: \(openAIKey.isEmpty ? "Cleared" : "Saved (\(openAIKey.count) chars)")")
+        print("  Claude: \(claudeKey.isEmpty ? "Cleared" : "Saved (\(claudeKey.count) chars)")")
         print("  Grok: \(grokKey.isEmpty ? "Cleared" : "Saved (\(grokKey.count) chars)")")
         print("  DeepSeek: \(deepseekKey.isEmpty ? "Cleared" : "Saved (\(deepseekKey.count) chars)")")
         print("  Gemini: \(geminiKey.isEmpty ? "Cleared" : "Saved (\(geminiKey.count) chars)")")
@@ -231,21 +243,6 @@ struct SettingsView: View {
             }
         }
         #endif
-    }
-}
-
-extension AIProvider {
-    var description: String {
-        switch self {
-        case .openAI:
-            return "GPT-4 powered responses with vision support"
-        case .gemini:
-            return "Google's multimodal AI model"
-        case .grok:
-            return "X.AI's Grok-4 with advanced reasoning"
-        case .deepseek:
-            return "DeepSeek's advanced AI with strong coding capabilities"
-        }
     }
 }
 

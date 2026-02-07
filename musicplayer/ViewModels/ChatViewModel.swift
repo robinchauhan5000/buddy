@@ -23,6 +23,7 @@ final class ChatViewModel: ObservableObject {
     private var streamBuffer: String = ""
     private var currentMessageId: UUID?
     private var openAIService: OpenAIService
+    private var claudeService: ClaudeAIService
     private var grokService: GrokService
     private var deepseekService: DeepSeekService
     private var geminiService: GeminiService
@@ -35,10 +36,12 @@ final class ChatViewModel: ObservableObject {
     
     init(apiKey: String? = nil) {
         let openAIKey = apiKey ?? AppConfig.openAIAPIKey
+        let claudeKey = AppConfig.claudeAPIKey
         let grokKey = AppConfig.grokAPIKey
         let deepseekKey = AppConfig.deepseekAPIKey
         let geminiKey = AppConfig.geminiAPIKey
         self.openAIService = OpenAIService(apiKey: openAIKey)
+        self.claudeService = ClaudeAIService(apiKey: claudeKey)
         self.grokService = GrokService(apiKey: grokKey)
         self.deepseekService = DeepSeekService(apiKey: deepseekKey)
         self.geminiService = GeminiService(apiKey: geminiKey)
@@ -49,6 +52,7 @@ final class ChatViewModel: ObservableObject {
     func refreshServices() {
         // Reinitialize services with updated API keys from AppConfig
         openAIService = OpenAIService(apiKey: AppConfig.openAIAPIKey)
+        claudeService = ClaudeAIService(apiKey: AppConfig.claudeAPIKey)
         grokService = GrokService(apiKey: AppConfig.grokAPIKey)
         deepseekService = DeepSeekService(apiKey: AppConfig.deepseekAPIKey)
         geminiService = GeminiService(apiKey: AppConfig.geminiAPIKey)
@@ -229,6 +233,16 @@ final class ChatViewModel: ObservableObject {
             switch selectedProvider {
             case .openAI:
                 stream = openAIService.streamInterviewResponse(
+                    prompt: question,
+                    category: selectedCategory,
+                    language: selectedLanguage,
+                    includeOptionalCodePhase: false,
+                    imageData: imageData,
+                    conversationContext: contextData,
+                    useInterviewCounterQuestion: useInterviewCounterQuestionPrompt
+                )
+            case .claude:
+                stream = claudeService.streamInterviewResponse(
                     prompt: question,
                     category: selectedCategory,
                     language: selectedLanguage,

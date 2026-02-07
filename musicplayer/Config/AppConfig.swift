@@ -5,6 +5,7 @@ struct AppConfig {
     
     // Keys for UserDefaults
     private static let openAIKeyName = "openai_api_key"
+    private static let claudeKeyName = "claude_api_key"
     private static let grokKeyName = "grok_api_key"
     private static let deepseekKeyName = "deepseek_api_key"
     private static let geminiKeyName = "gemini_api_key"
@@ -19,6 +20,18 @@ struct AppConfig {
         }
         set {
             storeKey(newValue, forKey: openAIKeyName)
+        }
+    }
+    
+    static var claudeAPIKey: String {
+        get {
+            if let savedKey = defaults.string(forKey: claudeKeyName), !savedKey.isEmpty {
+                return normalizeKey(savedKey)
+            }
+            return ""
+        }
+        set {
+            storeKey(newValue, forKey: claudeKeyName)
         }
     }
     
@@ -59,11 +72,12 @@ struct AppConfig {
     }
     
     static var isConfigured: Bool {
-        !openAIAPIKey.isEmpty || !grokAPIKey.isEmpty || !deepseekAPIKey.isEmpty || !geminiAPIKey.isEmpty
+        !openAIAPIKey.isEmpty || !claudeAPIKey.isEmpty || !grokAPIKey.isEmpty || !deepseekAPIKey.isEmpty || !geminiAPIKey.isEmpty
     }
     
     static func clearAllKeys() {
         defaults.removeObject(forKey: openAIKeyName)
+        defaults.removeObject(forKey: claudeKeyName)
         defaults.removeObject(forKey: grokKeyName)
         defaults.removeObject(forKey: deepseekKeyName)
         defaults.removeObject(forKey: geminiKeyName)
