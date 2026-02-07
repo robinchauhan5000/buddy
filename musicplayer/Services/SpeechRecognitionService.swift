@@ -1,146 +1,125 @@
-//
-//  SpeechRecognitionService.swift
-//  musicplayer
-//
-//  Created by Robin Chauhan on 03/02/26.
-//
-
-import Foundation
+import AVFoundation
 import Combine
 import Speech
-import AVFoundation
-
-@MainActor
-final class SpeechRecognitionService: NSObject, ObservableObject {
-    @Published var recognizedText: String = ""
-    @Published var isRecording: Bool = false
-    @Published var isAuthorized: Bool = false
-    
-    private var audioEngine: AVAudioEngine?
-    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
-    private var recognitionTask: SFSpeechRecognitionTask?
-    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
-    
-    override init() {
-        super.init()
-        requestAuthorization()
-    }
-    
-    func requestAuthorization() {
-        SFSpeechRecognizer.requestAuthorization { [weak self] authStatus in
-            DispatchQueue.main.async {
-                switch authStatus {
-                case .authorized:
-                    self?.isAuthorized = true
-                case .denied, .restricted, .notDetermined:
-                    self?.isAuthorized = false
-                    print("Speech recognition not authorized: \(authStatus.rawValue)")
-                @unknown default:
-                    self?.isAuthorized = false
-                }
-            }
-        }
-    }
-    
-    func startRecording() throws {
-        // Cancel any ongoing recognition task
-        if let recognitionTask = recognitionTask {
-            recognitionTask.cancel()
-            self.recognitionTask = nil
-        }
-        
-        // Reset recognized text
-        recognizedText = ""
-        
-        // Create recognition request
-        recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
-        
-        guard let recognitionRequest = recognitionRequest else {
-            throw SpeechRecognitionError.recognitionRequestFailed
-        }
-        
-        recognitionRequest.shouldReportPartialResults = true
-        
-        // Create audio engine
-        audioEngine = AVAudioEngine()
-        guard let audioEngine = audioEngine else {
-            throw SpeechRecognitionError.audioEngineFailed
-        }
-        
-        let inputNode = audioEngine.inputNode
-        let recordingFormat = inputNode.outputFormat(forBus: 0)
-        
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
-            recognitionRequest.append(buffer)
-        }
-        
-        audioEngine.prepare()
-        try audioEngine.start()
-        
-        // Start recognition
-        recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
-            guard let self = self else { return }
-            
-            var isFinal = false
-            
-            if let result = result {
-                Task { @MainActor in
-                    self.recognizedText = result.bestTranscription.formattedString
-                    isFinal = result.isFinal
-                }
-            }
-            
-            if error != nil || isFinal {
-                Task { @MainActor in
-                    audioEngine.stop()
-                    inputNode.removeTap(onBus: 0)
-                    
-                    self.recognitionRequest = nil
-                    self.recognitionTask = nil
-                }
-            }
-        }
-        
-        isRecording = true
-    }
-    
-    func stopRecording() -> String {
-        audioEngine?.stop()
-        audioEngine?.inputNode.removeTap(onBus: 0)
-        recognitionRequest?.endAudio()
-        
-        isRecording = false
-        
-        let finalText = recognizedText
-        recognizedText = ""
-        
-        return finalText
-    }
-    
-    func cancelRecording() {
-        audioEngine?.stop()
-        audioEngine?.inputNode.removeTap(onBus: 0)
-        recognitionRequest?.endAudio()
-        recognitionTask?.cancel()
-        
-        isRecording = false
-        recognizedText = ""
-    }
-}
 
 enum SpeechRecognitionError: Error {
-    case recognitionRequestFailed
-    case audioEngineFailed
     case notAuthorized
-    
-    var localizedDescription: String {
-        switch self {
-        case .recognitionRequestFailed:
-            return "Unable to create speech recognition request"
-        case .audioEngineFailed:
-            return "Unable to create audio engine"
-        case .notAuthorized:
-            return "Speech recognition not authorized"
+}
+
+@MainActor
+final class SpeechRecognitionService: ObservableObject {
+
+    @Published private(set) var recognizedText = ""
+    @Published private(set) var isRecording = false
+    @Published private(set) var isAuthorized = false
+
+    private let audioEngine = AVAudioEngine()
+    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+
+    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var recognitionTask: SFSpeechRecognitionTask?
+
+    init() {
+        Task {
+            await requestAuthorization()
         }
+    }
+
+    // MARK: - Authorization
+
+    func requestAuthorization() async {
+        let speechStatus = await withCheckedContinuation { continuation in
+            SFSpeechRecognizer.requestAuthorization { status in
+                continuation.resume(returning: status)
+            }
+        }
+        let micGranted: Bool
+        #if os(iOS)
+        micGranted = AVAudioSession.sharedInstance().recordPermission == .granted
+        #elseif os(macOS)
+        let status = AVCaptureDevice.authorizationStatus(for: .audio)
+        switch status {
+        case .authorized:
+            micGranted = true
+        case .notDetermined:
+            micGranted = await AVCaptureDevice.requestAccess(for: .audio)
+        default:
+            micGranted = false
+        }
+        #else
+        micGranted = false
+        #endif
+        isAuthorized = (speechStatus == .authorized && micGranted)
+    }
+
+    // MARK: - Recording
+
+    func startRecording() throws {
+        guard isAuthorized else {
+            throw SpeechRecognitionError.notAuthorized
+        }
+
+        cleanup()
+
+        recognizedText = ""
+
+        let request = SFSpeechAudioBufferRecognitionRequest()
+        request.shouldReportPartialResults = true
+        self.recognitionRequest = request
+
+        let inputNode = audioEngine.inputNode
+        let format = inputNode.outputFormat(forBus: 0)
+
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+            request.append(buffer)
+        }
+
+        audioEngine.prepare()
+        try audioEngine.start()
+
+        recognitionTask = speechRecognizer?.recognitionTask(with: request) { [weak self] result, error in
+            guard let self else { return }
+
+            if let result {
+                self.recognizedText = result.bestTranscription.formattedString
+            }
+
+            if result?.isFinal == true || error != nil {
+                self.stopInternal()
+            }
+        }
+
+        isRecording = true
+    }
+
+    func stopRecording() {
+        stopInternal()
+    }
+
+    func cancelRecording() {
+        recognitionTask?.cancel()
+        stopInternal(clearText: true)
+    }
+
+    // MARK: - Cleanup
+
+    private func stopInternal(clearText: Bool = false) {
+        audioEngine.stop()
+        audioEngine.inputNode.removeTap(onBus: 0)
+        recognitionRequest?.endAudio()
+
+        recognitionTask = nil
+        recognitionRequest = nil
+        isRecording = false
+
+        if clearText {
+            recognizedText = ""
+        }
+    }
+
+    private func cleanup() {
+        recognitionTask?.cancel()
+        recognitionTask = nil
+        recognitionRequest = nil
     }
 }

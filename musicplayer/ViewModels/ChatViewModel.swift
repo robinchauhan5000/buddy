@@ -113,7 +113,6 @@ final class ChatViewModel: ObservableObject {
         streamingTask = nil
         if isRecording {
             speechRecognitionService.cancelRecording()
-            isRecording = false
         }
         recordingBaseText = ""
         conversationHistory.clearHistory()
@@ -128,7 +127,6 @@ final class ChatViewModel: ObservableObject {
         stopStreamingState()
         if isRecording {
             speechRecognitionService.cancelRecording()
-            isRecording = false
         }
     }
     
@@ -156,8 +154,8 @@ final class ChatViewModel: ObservableObject {
 
     func toggleSpeechInput() {
         if isRecording {
-            let finalText = speechRecognitionService.stopRecording()
-            isRecording = false
+            speechRecognitionService.stopRecording()
+            let finalText = speechRecognitionService.recognizedText
             if !finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 currentInput = appendedSpeechText(
                     base: recordingBaseText,
@@ -176,6 +174,8 @@ final class ChatViewModel: ObservableObject {
             recordingBaseText = currentInput
             try speechRecognitionService.startRecording()
             isRecording = true
+        } catch SpeechRecognitionError.notAuthorized {
+            print("Speech recognition not authorized")
         } catch {
             print("Failed to start recording: \(error.localizedDescription)")
         }
@@ -416,12 +416,19 @@ final class ChatViewModel: ObservableObject {
         speechRecognitionService.$recognizedText
             .receive(on: RunLoop.main)
             .sink { [weak self] text in
-                guard let self = self else { return }
+                guard let self else { return }
                 guard self.isRecording else { return }
                 self.currentInput = self.appendedSpeechText(
                     base: self.recordingBaseText,
                     recognized: text
                 )
+            }
+            .store(in: &cancellables)
+
+        speechRecognitionService.$isRecording
+            .receive(on: RunLoop.main)
+            .sink { [weak self] serviceRecording in
+                self?.isRecording = serviceRecording
             }
             .store(in: &cancellables)
     }

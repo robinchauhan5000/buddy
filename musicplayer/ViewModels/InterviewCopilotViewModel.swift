@@ -20,9 +20,17 @@ class InterviewCopilotViewModel: ObservableObject {
     
     private let speechRecognitionService = SpeechRecognitionService()
     private var onSpeechRecognized: ((String) -> Void)?
-    
-    // MARK: - Computed Properties
-    
+    private var cancellables = Set<AnyCancellable>()
+
+    init() {
+        speechRecognitionService.$isRecording
+            .receive(on: RunLoop.main)
+            .sink { [weak self] isRecording in
+                self?.isMicrophoneActive = isRecording
+            }
+            .store(in: &cancellables)
+    }
+
     // MARK: - Actions
     
     func setSpeechRecognizedCallback(_ callback: @escaping (String) -> Void) {
@@ -39,23 +47,20 @@ class InterviewCopilotViewModel: ObservableObject {
     
     func toggleMicrophone() {
         if isMicrophoneActive {
-            // Stop recording and send the message
-            let recognizedText = speechRecognitionService.stopRecording()
-            isMicrophoneActive = false
-            
-            if !recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                onSpeechRecognized?(recognizedText)
+            speechRecognitionService.stopRecording()
+            let finalText = speechRecognitionService.recognizedText
+            if !finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                onSpeechRecognized?(finalText)
             }
         } else {
-            // Start recording
             guard speechRecognitionService.isAuthorized else {
                 print("Speech recognition not authorized")
                 return
             }
-            
             do {
                 try speechRecognitionService.startRecording()
-                isMicrophoneActive = true
+            } catch SpeechRecognitionError.notAuthorized {
+                print("Speech recognition not authorized")
             } catch {
                 print("Failed to start recording: \(error.localizedDescription)")
             }
