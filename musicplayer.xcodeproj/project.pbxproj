@@ -6,8 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		DB5B7A8E2F38FAEA00CC3BE8 /* Highlightr in Frameworks */ = {isa = PBXBuildFile; productRef = HLR1PRD2F325AC900BA3F53 /* Highlightr */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
-		DB0F09A32F325AC900BA3F53 /* musicplayer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = musicplayer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DB0F09A32F325AC900BA3F53 /* musicplayer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = musicplayer.app; path = Music.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -23,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DB5B7A8E2F38FAEA00CC3BE8 /* Highlightr in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +70,7 @@
 			);
 			name = musicplayer;
 			packageProductDependencies = (
+				HLR1PRD2F325AC900BA3F53 /* Highlightr */,
 			);
 			productName = musicplayer;
 			productReference = DB0F09A32F325AC900BA3F53 /* musicplayer.app */;
@@ -94,6 +100,9 @@
 			);
 			mainGroup = DB0F099A2F325AC900BA3F53;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				HLR1PKG2F325AC900BA3F53 /* XCRemoteSwiftPackageReference "Highlightr" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DB0F09A42F325AC900BA3F53 /* Products */;
 			projectDirPath = "";
@@ -256,10 +265,10 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Music;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "This app needs access to your microphone to convert speech to text for interview questions.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "This app needs access to speech recognition to convert your spoken questions into text.";
-				INFOPLIST_KEY_CFBundleDisplayName = Music;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -290,10 +299,10 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Music;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "This app needs access to your microphone to convert speech to text for interview questions.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "This app needs access to speech recognition to convert your spoken questions into text.";
-				INFOPLIST_KEY_CFBundleDisplayName = Music;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -333,6 +342,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		HLR1PKG2F325AC900BA3F53 /* XCRemoteSwiftPackageReference "Highlightr" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/raspu/Highlightr";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		HLR1PRD2F325AC900BA3F53 /* Highlightr */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = HLR1PKG2F325AC900BA3F53 /* XCRemoteSwiftPackageReference "Highlightr" */;
+			productName = Highlightr;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = DB0F099B2F325AC900BA3F53 /* Project object */;
 }

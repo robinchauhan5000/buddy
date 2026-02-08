@@ -38,8 +38,8 @@ RESPONSE SCHEMA:
   "sections": [
     {
       "type": "short_answer | details | code",
-      "content": "string | [string]",
-      "language": "string (only for code sections)"
+      "content": "string (for short_answer and details use a string; for code use a single string with \\n for newlines, NOT an array of lines)",
+      "language": "string (only for code sections, e.g. \"go\", \"python\")"
     }
   ],
   "context": {
@@ -49,27 +49,47 @@ RESPONSE SCHEMA:
     }
   }
 }
+
+CONTENT RULES:
+- short_answer, details: content must be a single string.
+- code: content must be a single string containing the full source code; use \\n for line breaks. Do NOT use an array of lines for code.
+"""
+
+    /// Image-specific task and rules — append when analyzing an image so the model extracts question/code and answers, instead of describing the screen.
+    private static let imageAnalysisTaskAndRules = """
+TASK:
+Analyze the image and find the question or code snippet. Then provide the full interview answer (e.g. approach, solution, code) for that question in the requested category. Your output must be the interview answer only.
+
+RULES:
+- If the image shows a meeting/chat UI, look in the chat or message area for the question or code.
+- If the image shows a code editor or snippet, treat that as the question or code to solve/explain.
+- If the user provided question text above, that is the question to answer; use the image only for extra context (e.g. code to fix).
+- Do NOT describe the screen, presentation, session, or UI (e.g. no "Screen Sharing Session", "Presentation Instructions", "infinity mirror warning"). Output only the technical interview answer (short_answer, details, code as per schema).
 """
 
     // MARK: - Image Analysis Prompt
-    static func buildImageAnalysisPrompt(userQuestion: String?) -> String {
+    /// Builds the same prompt as for the selected category (as when sending text), then appends the image TASK and RULES.
+    /// For system design, use the phased flow from the service with imageData in phase 1; this is used for non–system design or as base for phase 1.
+    static func buildImageAnalysisPrompt(
+        userQuestion: String?,
+        category: Category = .coding,
+        language: ProgrammingLanguage = .golang
+    ) -> String {
         let context = (userQuestion?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
         ? "USER CONTEXT:\n\(userQuestion!)"
         : ""
 
+        // Same prompt as when sending normally for this category (coding, technical, shortAnswers, systemDesign, etc.)
+        let promptForCategory = buildSystemPrompt(for: category, language: language)
+
+        // System design base prompt has no schema; others already include defaultJSONSchema
+        let schemaBlock = category == .systemDesign ? defaultJSONSchema : ""
+
         return """
-\(coreSystemRules)
+\(promptForCategory)
 
-TASK:
-Analyze the image for technical or coding content and respond using the JSON schema.
-
-RULES:
-- Answer user question if provided
-- If code is present, explain issues and provide corrected code
-- If language is unclear, default to Golang
-
-\(defaultJSONSchema)
-
+\(imageAnalysisTaskAndRules)
+\(schemaBlock.isEmpty ? "" : "\n\(schemaBlock)\n")
 \(context)
 """
     }
@@ -206,7 +226,7 @@ CATEGORY: Coding Interview
 
 STRUCTURE:
 - short_answer: Approach and reasoning
-- code: Complete working solution in \(language.rawValue)
+- code: Complete working solution in \(language.rawValue); content must be one string with \\n for newlines (not an array of lines)
 - details: Complexity, edge cases, alternatives
 
 RULES:
@@ -307,6 +327,24 @@ IMPORTANT:
     }
 
     // MARK: - System Design (Phased)
+    /// Use when the question comes only from the image (no user text).
+    static func buildSystemDesignPhase1UserPromptWithImage(language: ProgrammingLanguage) -> String {
+        buildSystemDesignPhaseUserPrompt(
+            phase: 1,
+            question: "Analyze the image and extract the system design question. Then perform Phase 1 (Problem Restatement) for that question.",
+            language: language
+        )
+    }
+
+    /// Use when the user provided the question in text and an image is attached for context. Ensures the model answers the text question, not an interpretation of the image.
+    static func buildSystemDesignPhase1UserPromptWithImageAndQuestion(question: String, language: ProgrammingLanguage) -> String {
+        buildSystemDesignPhaseUserPrompt(
+            phase: 1,
+            question: "The system design question to answer is given below. Use the attached image only for additional context if relevant. Do NOT derive the question from the image.\n\n\(question)",
+            language: language
+        )
+    }
+
     static func buildSystemDesignPhaseUserPrompt(
         phase: Int,
         question: String,

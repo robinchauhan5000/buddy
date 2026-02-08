@@ -202,10 +202,13 @@ struct MessageBubbleView: View {
     }
     
     private func codeBlockView(_ code: String, language: String?) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let displayLanguage = language ?? CodeHighlighter.parseLanguage(from: code)
+        let highlighted = CodeHighlighter.highlight(content: code, explicitLanguage: language)
+
+        return VStack(alignment: .leading, spacing: 0) {
             HStack {
-                if let language = language {
-                    Text(language)
+                if let lang = displayLanguage, !lang.isEmpty {
+                    Text(lang)
                         .font(.system(size: DesignSystem.FontSize.xs, weight: .medium))
                         .foregroundColor(DesignSystem.Colors.textSecondary)
                         .padding(.horizontal, DesignSystem.Spacing.sm)
@@ -214,9 +217,9 @@ struct MessageBubbleView: View {
                         .cornerRadius(DesignSystem.CornerRadius.sm)
                         .textSelection(.enabled)
                 }
-                
+
                 Spacer()
-                
+
                 Button(action: { MessageBubbleView.copyToPasteboard(code) }) {
                     HStack(spacing: 4) {
                         Image(systemName: "doc.on.doc")
@@ -234,13 +237,19 @@ struct MessageBubbleView: View {
             }
             .padding(DesignSystem.Spacing.sm)
             .background(DesignSystem.Colors.background)
-            
+
             ScrollView(.horizontal, showsIndicators: true) {
-                Text(code)
-                    .font(.system(size: DesignSystem.FontSize.sm, design: .monospaced))
-                    .foregroundColor(DesignSystem.Colors.textPrimary)
-                    .padding(DesignSystem.Spacing.md)
-                    .textSelection(.enabled)
+                Group {
+                    if let ns = highlighted {
+                        Text(AttributedString(ns))
+                    } else {
+                        Text(code)
+                            .foregroundColor(DesignSystem.Colors.textPrimary)
+                    }
+                }
+                .font(.system(size: DesignSystem.FontSize.sm, design: .monospaced))
+                .padding(DesignSystem.Spacing.md)
+                .textSelection(.enabled)
             }
             .background(DesignSystem.Colors.background)
         }

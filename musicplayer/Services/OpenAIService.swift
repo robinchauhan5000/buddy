@@ -28,7 +28,7 @@ final class OpenAIService: AIModel {
         let userPrompt: String
         
         if imageData != nil {
-            systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt)
+            systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt, category: category, language: language)
             userPrompt = prompt.isEmpty ? "Analyze this image and provide the answer in the specified JSON format." : prompt
         } else if category == .systemDesign {
             systemPrompt = PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language)
@@ -99,12 +99,13 @@ final class OpenAIService: AIModel {
         conversationContext: [[String: Any]] = [],
         useInterviewCounterQuestion: Bool = false
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
-        if category == .systemDesign && imageData == nil && !useInterviewCounterQuestion {
+        if category == .systemDesign && !useInterviewCounterQuestion {
             return streamPhasedSystemDesign(
                 prompt: prompt,
                 language: language,
                 includeOptionalCodePhase: includeOptionalCodePhase,
-                conversationContext: conversationContext
+                conversationContext: conversationContext,
+                imageData: imageData
             )
         }
         
@@ -112,7 +113,7 @@ final class OpenAIService: AIModel {
         let userPrompt: String
         
         if imageData != nil {
-            systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt)
+            systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt, category: category, language: language)
             userPrompt = prompt.isEmpty ? "Analyze this image and provide the answer in the specified JSON format." : prompt
         } else {
             systemPrompt = PromptBuilder.buildSystemPrompt(for: category, language: language, useInterviewCounterQuestion: useInterviewCounterQuestion)
@@ -132,7 +133,8 @@ final class OpenAIService: AIModel {
         prompt: String,
         language: ProgrammingLanguage,
         includeOptionalCodePhase: Bool,
-        conversationContext: [[String: Any]]
+        conversationContext: [[String: Any]],
+        imageData: Data? = nil
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
         return AsyncThrowingStream { continuation in
             let task = Task {
@@ -141,6 +143,7 @@ final class OpenAIService: AIModel {
                 var title = ""
                 let baseSystemPrompt = PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language)
                 let lastPhase = 15
+                let questionForPhases = prompt.isEmpty ? "System design question from image" : prompt
                 
                 do {
                     for phase in 1...lastPhase {
@@ -150,11 +153,23 @@ final class OpenAIService: AIModel {
                         
                         print("\n🔵 ========== PHASE \(phase)/\(lastPhase) START ==========")
                         
-                        let userPrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
-                            phase: phase,
-                            question: prompt,
-                            language: language
-                        )
+                        let userPrompt: String
+                        let phaseImageData: Data?
+                        if phase == 1, let imageData = imageData {
+                            if prompt.isEmpty {
+                                userPrompt = PromptBuilder.buildSystemDesignPhase1UserPromptWithImage(language: language)
+                            } else {
+                                userPrompt = PromptBuilder.buildSystemDesignPhase1UserPromptWithImageAndQuestion(question: prompt, language: language)
+                            }
+                            phaseImageData = imageData
+                        } else {
+                            userPrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
+                                phase: phase,
+                                question: questionForPhases,
+                                language: language
+                            )
+                            phaseImageData = nil
+                        }
                         
                         print("📝 System Prompt Length: \(baseSystemPrompt.count) characters")
                         print("📝 User Prompt Length: \(userPrompt.count) characters")
@@ -169,7 +184,7 @@ final class OpenAIService: AIModel {
                             systemPrompt: baseSystemPrompt,
                             prompt: userPrompt,
                             language: language,
-                            imageData: nil,
+                            imageData: phaseImageData,
                             conversationContext: conversationContext
                         )
                         
