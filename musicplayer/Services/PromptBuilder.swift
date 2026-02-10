@@ -197,8 +197,12 @@ LANGUAGE:
             return getCodingPrompt(language: language)
         case .technical:
             return getTechnicalPrompt()
-        case .shortAnswers, .quickAnswers, .trueFalse:
+        case .quickAnswers:
+            return getQuickAnswersPrompt()
+        case .shortAnswers:
             return getShortAnswersPrompt()
+        case .trueFalse:
+            return getTrueFalsePrompt()
         case .systemDesign:
             return getSystemDesignPrompt()
         case .scenarioBasedSystemDesign:
@@ -250,6 +254,33 @@ STRUCTURE:
 """
     }
 
+   private static func getTrueFalsePrompt() -> String {
+        """
+CATEGORY: True/False Interview Questions
+
+RULES:
+- True/False answer only
+- Why the answer is true/false should be in the details section
+STYLE:
+Precise and confident
+"""
+    }
+
+
+
+   private static func getQuickAnswersPrompt() -> String {
+        """
+CATEGORY: Quick Answers Interview Questions
+
+RULES:
+- Quick answer only
+- Quick answer should be in the short_answer section
+- Quick answer should be in the details section
+STYLE:
+Precise and confident
+"""
+    }
+
     private static func getShortAnswersPrompt() -> String {
         """
 CATEGORY: Rapid Interview Questions
@@ -257,8 +288,8 @@ CATEGORY: Rapid Interview Questions
 RULES:
 - short_answer only (1–3 sentences)
 - details only if unavoidable (≤5 bullets)
-- code only for tiny snippets
-
+- complete code solution code
+- Code explanation should be in the details section
 STYLE:
 Precise and confident
 """
