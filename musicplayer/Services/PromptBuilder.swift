@@ -40,6 +40,8 @@ SECTION RULES:
   * MUST include a language
   * Must be complete, production-ready code
   * Preserve indentation and newlines
+  * Must send function by function to Preserve indentation and newlines
+  * Must add new line if you adding code comment in code section
   * No markdown fencing
 
 STREAMING RULES:

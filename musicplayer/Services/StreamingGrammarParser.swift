@@ -272,7 +272,7 @@ public final class StreamingGrammarParser {
                     buffer.removeSubrange(..<contextRange.lowerBound)
                     if !chunk.isEmpty {
                         if currentSectionType == .code {
-                            currentSectionContent += chunk
+                            currentSectionContent = currentSectionContent.appendingCodeChunk(chunk)
                         } else {
                             currentSectionContent = currentSectionContent.appendingStreamingChunk(chunk)
                         }
@@ -304,7 +304,7 @@ public final class StreamingGrammarParser {
                         break
                     }
                     if currentSectionType == .code {
-                        currentSectionContent += chunk
+                        currentSectionContent = currentSectionContent.appendingCodeChunk(chunk)
                     } else {
                         currentSectionContent = currentSectionContent.appendingStreamingChunk(chunk)
                     }

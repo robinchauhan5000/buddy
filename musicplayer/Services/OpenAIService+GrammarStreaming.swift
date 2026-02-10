@@ -178,13 +178,13 @@ extension OpenAIService {
                                             lastSection = MessageSection(
                                                 id: lastSection.id,
                                                 type: lastSection.type,
-                                                content: .text(isCode ? existing + chunk : existing.appendingStreamingChunk(chunk)),
+                                                content: .text(isCode ? existing.appendingCodeChunk(chunk) : existing.appendingStreamingChunk(chunk)),
                                                 language: lastSection.language
                                             )
                                         case .list(let items):
                                             var newItems = items
                                             if !newItems.isEmpty {
-                                                newItems[newItems.count - 1] = isCode ? newItems[newItems.count - 1] + chunk : newItems[newItems.count - 1].appendingStreamingChunk(chunk)
+                                                newItems[newItems.count - 1] = isCode ? newItems[newItems.count - 1].appendingCodeChunk(chunk) : newItems[newItems.count - 1].appendingStreamingChunk(chunk)
                                             } else {
                                                 newItems.append(chunk)
                                             }
