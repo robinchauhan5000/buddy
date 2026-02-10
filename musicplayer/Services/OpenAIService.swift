@@ -412,8 +412,13 @@ final class OpenAIService: AIModel {
                     
                     continuation.finish()
                 } catch {
-                    print("❌ ERROR in streamOpenAIResponse: \(error)")
-                    continuation.finish(throwing: error)
+                    let nsError = error as NSError
+                    if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled {
+                        continuation.finish(throwing: CancellationError())
+                    } else {
+                        print("❌ ERROR in streamOpenAIResponse: \(error)")
+                        continuation.finish(throwing: error)
+                    }
                 }
             }
             

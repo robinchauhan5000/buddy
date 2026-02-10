@@ -35,10 +35,12 @@ struct InterviewCopilotView: View {
                     }
                 },
                 onMicrophone: viewModel.toggleMicrophone,
+                onChromeSound: viewModel.toggleChromeSound,
                 onScreenShare: viewModel.shareScreen,
                 onDelete: chatViewModel.clearChat,
                 onProviderChange: { _ in },
                 isMicrophoneActive: viewModel.isMicrophoneActive,
+                isChromeSoundActive: viewModel.isChromeSoundActive,
                 isScreenShareHidden: viewModel.isScreenShareHidden
             )
             

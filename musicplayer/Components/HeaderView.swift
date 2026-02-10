@@ -17,10 +17,12 @@ struct HeaderView: View {
     let onCopy: () -> Void
     let onToggleScreenShareVisibility: () -> Void
     let onMicrophone: () -> Void
+    let onChromeSound: () -> Void
     let onScreenShare: () -> Void
     let onDelete: () -> Void
     let onProviderChange: (AIProvider) -> Void
     var isMicrophoneActive: Bool = false
+    var isChromeSoundActive: Bool = false
     var isScreenShareHidden: Bool = true
     
     var body: some View {
@@ -67,6 +69,14 @@ struct HeaderView: View {
                         backgroundColor: DesignSystem.Colors.tertiaryBackground,
                         foregroundColor: DesignSystem.Colors.textSecondary,
                         isActive: isMicrophoneActive
+                    )
+                    IconButton(
+                        iconName: "speaker.wave.2.fill",
+                        action: onChromeSound,
+                        size: DesignSystem.IconSize.lg,
+                        backgroundColor: DesignSystem.Colors.tertiaryBackground,
+                        foregroundColor: DesignSystem.Colors.textSecondary,
+                        isActive: isChromeSoundActive
                     )
                     IconButton(
                         iconName: "trash",
@@ -170,10 +180,12 @@ struct HeaderView: View {
         onCopy: {},
         onToggleScreenShareVisibility: {},
         onMicrophone: {},
+        onChromeSound: {},
         onScreenShare: {},
         onDelete: {},
         onProviderChange: { _ in },
         isMicrophoneActive: true,
+        isChromeSoundActive: false,
         isScreenShareHidden: true
     )
     .background(DesignSystem.Colors.background)

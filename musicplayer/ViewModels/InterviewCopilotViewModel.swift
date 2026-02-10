@@ -8,6 +8,7 @@
 import Foundation
 import Combine
 import AppKit
+import Speech
 
 @MainActor
 class InterviewCopilotViewModel: ObservableObject {
@@ -15,12 +16,19 @@ class InterviewCopilotViewModel: ObservableObject {
     @Published var selectedCategory: Category = .normal
     @Published var sessionState: SessionState = .active
     @Published var isMicrophoneActive: Bool = false
+    @Published var isChromeSoundActive: Bool = false
     @Published var isScreenShareHidden: Bool = true
     @Published var showSettings: Bool = false
     
     private let speechRecognitionService = SpeechRecognitionService()
+    private let chromeCaptureManager = ChromeAudioCaptureManager()
     private var onSpeechRecognized: ((String) -> Void)?
     private var cancellables = Set<AnyCancellable>()
+
+    // Chrome audio → speech recognition
+    private var chromeRecognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var chromeRecognitionTask: SFSpeechRecognitionTask?
+    private let chromeSpeechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
 
     init() {
         speechRecognitionService.$isRecording
@@ -76,7 +84,95 @@ class InterviewCopilotViewModel: ObservableObject {
         guard isMicrophoneActive else { return }
         toggleMicrophone()
     }
-    
+
+    // MARK: - Chrome sound capture (ScreenCaptureKit → Speech)
+
+    func toggleChromeSound() {
+        if isChromeSoundActive {
+            stopChromeSound()
+        } else {
+            startChromeSound()
+        }
+    }
+
+    private func startChromeSound() {
+        guard speechRecognitionService.isAuthorized else {
+            print("Speech recognition not authorized. Grant microphone and speech in System Settings.")
+            return
+        }
+        guard chromeSpeechRecognizer != nil else {
+            print("Speech recognizer not available")
+            return
+        }
+
+        let request = SFSpeechAudioBufferRecognitionRequest()
+        request.shouldReportPartialResults = true
+        chromeRecognitionRequest = request
+
+        chromeCaptureManager.onAudioBuffer = { [weak self] buffer in
+            guard let self else { return }
+            let converted = AudioFormatConversion.toSpeechFormat(buffer)
+            guard let converted else { return }
+            Task { @MainActor in
+                self.chromeRecognitionRequest?.append(converted)
+            }
+        }
+
+        chromeRecognitionTask = chromeSpeechRecognizer?.recognitionTask(with: request) { [weak self] result, error in
+            guard let self else { return }
+            if let result, result.isFinal {
+                let text = result.bestTranscription.formattedString
+                Task { @MainActor in
+                    self.finishChromeSound(recognizedText: text)
+                }
+            }
+            if error != nil {
+                Task { @MainActor in
+                    self.finishChromeSound(recognizedText: "")
+                }
+            }
+        }
+
+        Task {
+            do {
+                try await chromeCaptureManager.start()
+                await MainActor.run { self.isChromeSoundActive = true }
+            } catch {
+                await MainActor.run {
+                    self.chromeRecognitionTask?.cancel()
+                    self.chromeRecognitionTask = nil
+                    self.chromeRecognitionRequest = nil
+                    self.isChromeSoundActive = false
+                }
+                print("Chrome audio capture failed: \(error.localizedDescription). Ensure Google Chrome is running and Screen Recording permission is granted.")
+            }
+        }
+    }
+
+    private func stopChromeSound() {
+        chromeRecognitionRequest?.endAudio()
+        Task {
+            await chromeCaptureManager.stop()
+            await MainActor.run {
+                chromeCaptureManager.onAudioBuffer = nil
+                chromeRecognitionTask = nil
+                chromeRecognitionRequest = nil
+                isChromeSoundActive = false
+            }
+        }
+    }
+
+    private func finishChromeSound(recognizedText: String) {
+        chromeRecognitionTask = nil
+        chromeRecognitionRequest = nil
+        isChromeSoundActive = false
+        chromeCaptureManager.onAudioBuffer = nil
+        Task { await chromeCaptureManager.stop() }
+        if !recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            onSpeechRecognized?(recognizedText)
+        }
+    }
+
     func toggleScreenShareVisibility() {
         setScreenShareHidden(!isScreenShareHidden)
     }
