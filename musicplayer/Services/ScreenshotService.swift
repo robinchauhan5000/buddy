@@ -2,7 +2,11 @@
 //  ScreenshotService.swift
 //  musicplayer
 //
-//  Screenshot capture service for analyzing screen content
+//  Screenshot capture service for analyzing screen content.
+//
+//  Screen Recording permission: If the app keeps asking for permission after restart,
+//  ensure the app is signed with a Development team (not "Sign to Run Locally") in
+//  Xcode → Signing & Capabilities, so macOS recognizes the app across builds.
 //
 
 import Foundation
@@ -15,22 +19,30 @@ final class ScreenshotService: ObservableObject {
     @Published var capturedScreenshots: [ScreenshotData] = []
     @Published var isCapturing: Bool = false
     
-    /// Capture a screenshot of the entire screen
+    /// Capture a screenshot of the entire screen.
+    /// Uses ScreenCaptureKit directly first; only falls back to CGPreflightScreenCaptureAccess()
+    /// when content is empty, because the preflight check is known to return false even after
+    /// permission is granted (e.g. after restart or with development builds).
     func captureScreenshot() async throws {
         isCapturing = true
         defer { isCapturing = false }
         
-        // Request screen recording permission if not already granted
-        guard CGPreflightScreenCaptureAccess() else {
-            // Request permission
+        // Try ScreenCaptureKit first — don't rely on CGPreflightScreenCaptureAccess(), which
+        // often returns false even when permission is granted and doesn't update immediately.
+        let content: SCShareableContent
+        do {
+            content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+        } catch {
             CGRequestScreenCaptureAccess()
             throw ScreenshotError.permissionDenied
         }
         
-        // Get available displays
-        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-        
         guard let display = content.displays.first else {
+            // No displays: likely permission denied (API can return empty content instead of throwing).
+            if !CGPreflightScreenCaptureAccess() {
+                CGRequestScreenCaptureAccess()
+                throw ScreenshotError.permissionDenied
+            }
             throw ScreenshotError.noDisplayFound
         }
         

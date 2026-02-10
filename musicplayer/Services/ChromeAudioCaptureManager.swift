@@ -27,7 +27,17 @@ final class ChromeAudioCaptureManager {
     // MARK: - Public API
 
     func start() async throws {
-        let content = try await SCShareableContent.current
+        let content: SCShareableContent
+        do {
+            content = try await SCShareableContent.current
+        } catch {
+            CGRequestScreenCaptureAccess()
+            throw NSError(
+                domain: "ChromeCapture",
+                code: -3,
+                userInfo: [NSLocalizedDescriptionKey: "Screen Recording permission is required. Please enable it in System Settings → Privacy & Security → Screen Recording."]
+            )
+        }
 
         guard let chromeApp = content.applications.first(where: {
             $0.applicationName == "Google Chrome"
@@ -40,10 +50,13 @@ final class ChromeAudioCaptureManager {
         }
 
         guard let display = content.displays.first else {
+            if !CGPreflightScreenCaptureAccess() {
+                CGRequestScreenCaptureAccess()
+            }
             throw NSError(
                 domain: "ChromeCapture",
                 code: -2,
-                userInfo: [NSLocalizedDescriptionKey: "No display available"]
+                userInfo: [NSLocalizedDescriptionKey: "Screen Recording permission is required, or no display is available. Please enable it in System Settings → Privacy & Security → Screen Recording."]
             )
         }
 
