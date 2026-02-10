@@ -27,18 +27,20 @@ final class ScreenshotService: ObservableObject {
         isCapturing = true
         defer { isCapturing = false }
         
-        // Try ScreenCaptureKit first — don't rely on CGPreflightScreenCaptureAccess(), which
-        // often returns false even when permission is granted and doesn't update immediately.
+        // Try ScreenCaptureKit first — don't rely on CGPreflightScreenCaptureAccess() for success,
+        // but only open System Settings when preflight says no permission (avoids opening Settings
+        // when permission is already granted but API failed or returned empty).
         let content: SCShareableContent
         do {
             content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
         } catch {
-            CGRequestScreenCaptureAccess()
+            if !CGPreflightScreenCaptureAccess() {
+                CGRequestScreenCaptureAccess()
+            }
             throw ScreenshotError.permissionDenied
         }
         
         guard let display = content.displays.first else {
-            // No displays: likely permission denied (API can return empty content instead of throwing).
             if !CGPreflightScreenCaptureAccess() {
                 CGRequestScreenCaptureAccess()
                 throw ScreenshotError.permissionDenied

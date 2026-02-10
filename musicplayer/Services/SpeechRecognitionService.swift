@@ -20,9 +20,8 @@ final class SpeechRecognitionService: ObservableObject {
     private var recognitionTask: SFSpeechRecognitionTask?
 
     init() {
-        Task {
-            await requestAuthorization()
-        }
+        // Authorization is requested on first use (when user taps mic), not at launch,
+        // to avoid HAL/Core Audio console noise (task name port, AddInstanceForFactory).
     }
 
     // MARK: - Authorization

@@ -11,7 +11,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		DB0F09A32F325AC900BA3F53 /* musicplayer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = musicplayer.app; path = musicplayer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DB0F09A32F325AC900BA3F53 /* musicplayer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = musicplayer.app; path = "Music Player.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -265,7 +265,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Music;
+				INFOPLIST_KEY_CFBundleDisplayName = "Music Player";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "This app needs access to your microphone to convert speech to text for interview questions.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "This app needs access to speech recognition to convert your spoken questions into text.";
@@ -275,7 +275,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = robinchauhan.musicplayer;
-				PRODUCT_NAME = musicplayer;
+				PRODUCT_NAME = "Music Player";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -299,7 +299,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Music;
+				INFOPLIST_KEY_CFBundleDisplayName = "Music Player";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "This app needs access to your microphone to convert speech to text for interview questions.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "This app needs access to speech recognition to convert your spoken questions into text.";
@@ -309,7 +309,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = robinchauhan.musicplayer;
-				PRODUCT_NAME = musicplayer;
+				PRODUCT_NAME = "Music Player";
 				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;

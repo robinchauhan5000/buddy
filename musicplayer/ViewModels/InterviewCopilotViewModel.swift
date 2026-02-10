@@ -61,16 +61,19 @@ class InterviewCopilotViewModel: ObservableObject {
                 onSpeechRecognized?(finalText)
             }
         } else {
-            guard speechRecognitionService.isAuthorized else {
-                print("Speech recognition not authorized")
-                return
-            }
-            do {
-                try speechRecognitionService.startRecording()
-            } catch SpeechRecognitionError.notAuthorized {
-                print("Speech recognition not authorized")
-            } catch {
-                print("Failed to start recording: \(error.localizedDescription)")
+            Task {
+                await speechRecognitionService.requestAuthorization()
+                guard speechRecognitionService.isAuthorized else {
+                    print("Speech recognition not authorized")
+                    return
+                }
+                do {
+                    try speechRecognitionService.startRecording()
+                } catch SpeechRecognitionError.notAuthorized {
+                    print("Speech recognition not authorized")
+                } catch {
+                    print("Failed to start recording: \(error.localizedDescription)")
+                }
             }
         }
     }
@@ -96,14 +99,23 @@ class InterviewCopilotViewModel: ObservableObject {
     }
 
     private func startChromeSound() {
-        guard speechRecognitionService.isAuthorized else {
-            print("Speech recognition not authorized. Grant microphone and speech in System Settings.")
-            return
-        }
         guard chromeSpeechRecognizer != nil else {
             print("Speech recognizer not available")
             return
         }
+
+        Task {
+            await speechRecognitionService.requestAuthorization()
+            guard speechRecognitionService.isAuthorized else {
+                print("Speech recognition not authorized. Grant microphone and speech in System Settings.")
+                return
+            }
+            await startChromeSoundAfterAuthorization()
+        }
+    }
+
+    private func startChromeSoundAfterAuthorization() async {
+        guard speechRecognitionService.isAuthorized else { return }
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
@@ -133,19 +145,17 @@ class InterviewCopilotViewModel: ObservableObject {
             }
         }
 
-        Task {
-            do {
-                try await chromeCaptureManager.start()
-                await MainActor.run { self.isChromeSoundActive = true }
-            } catch {
-                await MainActor.run {
-                    self.chromeRecognitionTask?.cancel()
-                    self.chromeRecognitionTask = nil
-                    self.chromeRecognitionRequest = nil
-                    self.isChromeSoundActive = false
-                }
-                print("Chrome audio capture failed: \(error.localizedDescription). Ensure Google Chrome is running and Screen Recording permission is granted.")
+        do {
+            try await chromeCaptureManager.start()
+            await MainActor.run { self.isChromeSoundActive = true }
+        } catch {
+            await MainActor.run {
+                self.chromeRecognitionTask?.cancel()
+                self.chromeRecognitionTask = nil
+                self.chromeRecognitionRequest = nil
+                self.isChromeSoundActive = false
             }
+            print("Chrome audio capture failed: \(error.localizedDescription). Ensure Google Chrome is running and Screen Recording permission is granted.")
         }
     }
 

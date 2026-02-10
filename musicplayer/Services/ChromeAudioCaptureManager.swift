@@ -31,7 +31,9 @@ final class ChromeAudioCaptureManager {
         do {
             content = try await SCShareableContent.current
         } catch {
-            CGRequestScreenCaptureAccess()
+            if !CGPreflightScreenCaptureAccess() {
+                CGRequestScreenCaptureAccess()
+            }
             throw NSError(
                 domain: "ChromeCapture",
                 code: -3,
