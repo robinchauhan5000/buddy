@@ -1,6 +1,6 @@
 import Foundation
 
-enum SectionType: String, Codable {
+public enum SectionType: String, Codable {
     // Basic section types
     case shortAnswer = "short_answer"
     case details = "details"
@@ -23,7 +23,7 @@ enum SectionType: String, Codable {
     case tradeOffsAndAlternatives = "trade_offs_and_alternatives"
     case failureScenariosAndRecovery = "failure_scenarios_and_recovery"
 
-    var displayName: String {
+    public var displayName: String {
         switch self {
         // Basic section types
         case .shortAnswer:

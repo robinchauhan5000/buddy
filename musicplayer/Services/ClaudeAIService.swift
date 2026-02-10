@@ -211,7 +211,12 @@ final class ClaudeAIService: AIModel {
                         return
                     }
 
-                    let parser = StreamingResponseParser()
+                    var parser = StreamParser()
+                    var streamedText = ""
+                    var receivedLog = ""
+                    var chunkIndex = 0
+
+                    print("🌊 Starting Claude SSE stream...")
 
                     for try await line in bytes.lines {
                         if Task.isCancelled { throw CancellationError() }
@@ -225,22 +230,47 @@ final class ClaudeAIService: AIModel {
                            let delta = json["delta"] as? [String: Any] {
                             let text = (delta["text"] as? String) ?? (delta["text_delta"] as? String) ?? ""
                             if !text.isEmpty {
-                                if let response = parser.addChunk(text) {
-                                    continuation.yield(response)
+                                chunkIndex += 1
+                                receivedLog.append(text)
+                                if chunkIndex <= 3 || chunkIndex % 25 == 0 {
+                                    let preview = text.count > 60 ? String(text.prefix(60)) + "…" : text
+                                    print("📥 Claude Chunk #\(chunkIndex): \(text.count) chars — \"\(preview.replacingOccurrences(of: "\n", with: "↵"))\"")
+                                }
+                                // Parse chunk and emit events
+                                let events = parser.parse(chunk: text)
+                                for event in events {
+                                    switch event {
+                                    case .token(let token):
+                                        // Stream token immediately to UI
+                                        streamedText.append(token)
+                                        continuation.yield(StreamingResponse(
+                                            title: "",
+                                            sections: [MessageSection(
+                                                type: .shortAnswer,
+                                                content: .text(streamedText)
+                                            )],
+                                            isComplete: false
+                                        ))
+                                        
+                                    case .completed(let aiResponse):
+                                        // Emit final structured response
+                                        continuation.yield(StreamingResponse(
+                                            title: aiResponse.title,
+                                            sections: aiResponse.sections,
+                                            isComplete: true
+                                        ))
+                                    }
                                 }
                             }
                         }
 
                         if type == "message_stop" {
-                            if let response = parser.finalize() {
-                                continuation.yield(response)
-                            }
                             break
                         }
                     }
-
-                    if let response = parser.finalize() {
-                        continuation.yield(response)
+                    print("🏁 Claude stream ended. Full received (\(receivedLog.count) chars) — first 400: \(receivedLog.prefix(400))")
+                    if receivedLog.count > 400 {
+                        print("📄 ... last 200: \(receivedLog.suffix(200))")
                     }
                     continuation.finish()
                 } catch {

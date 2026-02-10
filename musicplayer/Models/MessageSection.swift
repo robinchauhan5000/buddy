@@ -1,19 +1,19 @@
 import Foundation
 
-struct MessageSection: Codable, Identifiable, Equatable {
-    let id: UUID
-    let type: SectionType
-    let content: SectionContent
-    let language: String?
+public struct MessageSection: Codable, Identifiable, Equatable {
+    public let id: UUID
+    public let type: SectionType
+    public let content: SectionContent
+    public let language: String?
     
-    static func == (lhs: MessageSection, rhs: MessageSection) -> Bool {
+    public static func == (lhs: MessageSection, rhs: MessageSection) -> Bool {
         lhs.id == rhs.id &&
         lhs.type == rhs.type &&
         lhs.content == rhs.content &&
         lhs.language == rhs.language
     }
     
-    init(id: UUID = UUID(), type: SectionType, content: SectionContent, language: String? = nil) {
+    public init(id: UUID = UUID(), type: SectionType, content: SectionContent, language: String? = nil) {
         self.id = id
         self.type = type
         self.content = content
@@ -26,7 +26,7 @@ struct MessageSection: Codable, Identifiable, Equatable {
         case language
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.id = UUID()
         self.type = try container.decode(SectionType.self, forKey: .type)
@@ -41,7 +41,7 @@ struct MessageSection: Codable, Identifiable, Equatable {
         }
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(type, forKey: .type)
         try container.encodeIfPresent(language, forKey: .language)
@@ -55,11 +55,11 @@ struct MessageSection: Codable, Identifiable, Equatable {
     }
 }
 
-enum SectionContent: Codable, Equatable {
+public enum SectionContent: Codable, Equatable {
     case text(String)
     case list([String])
     
-    var displayText: String {
+    public var displayText: String {
         switch self {
         case .text(let string):
             return string
@@ -68,7 +68,7 @@ enum SectionContent: Codable, Equatable {
         }
     }
     
-    var asList: [String] {
+    public var asList: [String] {
         switch self {
         case .text(let string):
             return [string]

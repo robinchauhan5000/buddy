@@ -2,9 +2,9 @@ import Foundation
 
 final class OpenAIService: AIModel {
     private let httpClient: HTTPClient
-    private let apiKey: String
-    private static let model = "gpt-4o"
-    private static let visionModel = "gpt-4o"
+    internal let apiKey: String  // Changed to internal for extension access
+    internal static let model = "gpt-4o"  // Changed to internal for extension access
+    internal static let visionModel = "gpt-4o"  // Changed to internal for extension access
     
     init(apiKey: String) {
         self.apiKey = apiKey
@@ -316,8 +316,8 @@ final class OpenAIService: AIModel {
                 let body: [String: Any] = [
                     "model": imageData != nil ? Self.visionModel : Self.model,
                     "stream": true,
-                    "messages": messages,
-                    "response_format": ["type": "json_object"]
+                    "messages": messages
+                    // No response_format - using grammar format instead of JSON
                 ]
                 
                 request.httpBody = try? JSONSerialization.data(withJSONObject: body)
@@ -343,9 +343,11 @@ final class OpenAIService: AIModel {
                         return
                     }
                     
-                    let parser = StreamingResponseParser()
+                    var parser = StreamingGrammarParser()
+                    var currentTitle = ""
+                    var currentSections: [MessageSection] = []
                     var chunkCount = 0
-                    var totalContent = ""
+                    var receivedLog = ""
                     
                     print("🌊 Starting to receive SSE stream...")
                     
@@ -366,10 +368,25 @@ final class OpenAIService: AIModel {
                             if data == "[DONE]" {
                                 print("🏁 Received [DONE] signal")
                                 print("📊 Total chunks received: \(chunkCount)")
-                                print("📊 Total content length: \(totalContent.count) chars")
+                                print("📄 Full received response (\(receivedLog.count) chars) — first 400: \(receivedLog.prefix(400))")
+                                if receivedLog.count > 400 {
+                                    print("📄 ... last 200: \(receivedLog.suffix(200))")
+                                }
                                 lastLineWasDone = true
-                                if let response = parser.finalize() {
-                                    continuation.yield(response)
+                                
+                                // Finalize parser
+                                let finalEvents = parser.finalize()
+                                for event in finalEvents {
+                                    switch event {
+                                    case .completed(let response, _):
+                                        continuation.yield(StreamingResponse(
+                                            title: response.title,
+                                            sections: response.sections,
+                                            isComplete: true
+                                        ))
+                                    default:
+                                        break
+                                    }
                                 }
                                 break
                             }
@@ -384,14 +401,97 @@ final class OpenAIService: AIModel {
                             }
                             
                             chunkCount += 1
-                            totalContent.append(content)
-                            
-                            if chunkCount % 50 == 0 {
-                                print("📦 Chunk #\(chunkCount): +\(content.count) chars (total: \(totalContent.count))")
+                            receivedLog.append(content)
+                            // Log every 25th chunk + first 3 to avoid flooding (full response logged at end)
+                            if chunkCount <= 3 || chunkCount % 25 == 0 {
+                                let preview = content.count > 60 ? String(content.prefix(60)) + "…" : content
+                                print("📥 Chunk #\(chunkCount): \(content.count) chars — \"\(preview.replacingOccurrences(of: "\n", with: "↵"))\"")
                             }
                             
-                            if let response = parser.addChunk(content) {
-                                continuation.yield(response)
+                            // Parse chunk through grammar parser
+                            let events = parser.parse(chunk: content)
+                            for event in events {
+                                switch event {
+                                case .titleParsed(let title):
+                                    currentTitle = title
+                                    print("📌 Title: \(title)")
+                                    
+                                case .sectionStarted(let type, let language):
+                                    // Create new section with proper type and language
+                                    print("🆕 Section started: \(type.displayName) (language: \(language ?? "none"))")
+                                    currentSections.append(MessageSection(
+                                        type: type,
+                                        content: .text(""),
+                                        language: language
+                                    ))
+                                    
+                                case .contentChunk(let chunk):
+                                    // Update last section with new content. Use plain concat for code (preserve formatting); space-join for text/list.
+                                    if !currentSections.isEmpty {
+                                        var lastSection = currentSections.removeLast()
+                                        let isCode = lastSection.type == .code
+                                        
+                                        switch lastSection.content {
+                                        case .text(let existing):
+                                            lastSection = MessageSection(
+                                                id: lastSection.id,
+                                                type: lastSection.type,
+                                                content: .text(isCode ? existing + chunk : existing.appendingStreamingChunk(chunk)),
+                                                language: lastSection.language
+                                            )
+                                        case .list(let items):
+                                            var newItems = items
+                                            if !newItems.isEmpty {
+                                                newItems[newItems.count - 1] = isCode ? newItems[newItems.count - 1] + chunk : newItems[newItems.count - 1].appendingStreamingChunk(chunk)
+                                            } else {
+                                                newItems.append(chunk)
+                                            }
+                                            lastSection = MessageSection(
+                                                id: lastSection.id,
+                                                type: lastSection.type,
+                                                content: .list(newItems),
+                                                language: lastSection.language
+                                            )
+                                        }
+                                        
+                                        currentSections.append(lastSection)
+                                    }
+                                    
+                                    // Yield streaming update
+                                    continuation.yield(StreamingResponse(
+                                        title: currentTitle,
+                                        sections: currentSections,
+                                        isComplete: false
+                                    ))
+                                    
+                                case .sectionCompleted(let section):
+                                    print("✅ Section completed: \(section.type.displayName)")
+                                    
+                                    // Replace or add section
+                                    if !currentSections.isEmpty && currentSections.last?.type == section.type {
+                                        currentSections[currentSections.count - 1] = section
+                                    } else {
+                                        currentSections.append(section)
+                                    }
+                                    
+                                    continuation.yield(StreamingResponse(
+                                        title: currentTitle,
+                                        sections: currentSections,
+                                        isComplete: false
+                                    ))
+                                    
+                                case .completed(let response, let context):
+                                    print("🎉 Response completed with \(response.sections.count) sections")
+                                    if let ctx = context {
+                                        print("📝 Context: \(ctx.conversationSummary.prefix(50))...")
+                                    }
+                                    
+                                    continuation.yield(StreamingResponse(
+                                        title: response.title,
+                                        sections: response.sections,
+                                        isComplete: true
+                                    ))
+                                }
                             }
                         }
                     }
@@ -399,14 +499,22 @@ final class OpenAIService: AIModel {
                     if !lastLineWasDone {
                         print("⚠️ Stream ended WITHOUT [DONE] signal!")
                         print("📊 Total chunks received: \(chunkCount)")
-                        print("📊 Total content length: \(totalContent.count) chars")
-                        print("🔍 Attempting to finalize anyway...")
-                        if let response = parser.finalize() {
-                            continuation.yield(response)
+                        
+                        // Finalize anyway
+                        let finalEvents = parser.finalize()
+                        for event in finalEvents {
+                            switch event {
+                            case .completed(let response, _):
+                                continuation.yield(StreamingResponse(
+                                    title: response.title,
+                                    sections: response.sections,
+                                    isComplete: true
+                                ))
+                            default:
+                                break
+                            }
                         }
                     }
-                    
-                    print("✅ Stream processing complete")
                     
                     print("✅ Stream processing complete")
                     

@@ -177,12 +177,24 @@ struct MessageBubbleView: View {
             .textSelection(.enabled)
     }
     
-    private func textContentView(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: DesignSystem.FontSize.md))
+    /// Renders text with **bold** markdown as bold; falls back to plain text if markdown fails.
+    private func textWithMarkdown(_ text: String, fontSize: CGFloat = DesignSystem.FontSize.md) -> some View {
+        if let attr = try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
+            return Text(attr)
+                .font(.system(size: fontSize))
+                .foregroundColor(DesignSystem.Colors.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
+        }
+        return Text(text)
+            .font(.system(size: fontSize))
             .foregroundColor(DesignSystem.Colors.textPrimary)
             .fixedSize(horizontal: false, vertical: true)
             .textSelection(.enabled)
+    }
+    
+    private func textContentView(_ text: String) -> some View {
+        textWithMarkdown(text)
     }
     
     private func listContentView(_ items: [String]) -> some View {
@@ -191,11 +203,7 @@ struct MessageBubbleView: View {
                 HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
                     Text("•")
                         .foregroundColor(DesignSystem.Colors.accent)
-                    Text(item)
-                        .font(.system(size: DesignSystem.FontSize.md))
-                        .foregroundColor(DesignSystem.Colors.textPrimary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .textSelection(.enabled)
+                    textWithMarkdown(item)
                 }
             }
         }

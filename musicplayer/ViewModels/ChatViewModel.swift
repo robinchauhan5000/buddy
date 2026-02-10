@@ -284,13 +284,17 @@ final class ChatViewModel: ObservableObject {
             }
             
             for try await response in stream {
-                updateStreamingMessage(
-                    messageId: messageId,
-                    response: response
-                )
+                await MainActor.run {
+                    updateStreamingMessage(
+                        messageId: messageId,
+                        response: response
+                    )
+                }
             }
             
-            finalizeStreamingMessage(messageId: messageId, question: question)
+            await MainActor.run {
+                finalizeStreamingMessage(messageId: messageId, question: question)
+            }
         } catch is CancellationError {
             stopStreamingState()
         } catch {

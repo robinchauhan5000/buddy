@@ -1,14 +1,14 @@
 import Foundation
 
-struct ConversationContext: Codable, Identifiable {
-    let id: UUID
-    let conversationSummary: String
-    let previousAnswerSummary: PreviousAnswerSummary
-    let currentIntent: String
-    let relatedToPrevious: Bool
-    let timestamp: Date
+public struct ConversationContext: Codable, Identifiable {
+    public let id: UUID
+    public let conversationSummary: String
+    public let previousAnswerSummary: PreviousAnswerSummary
+    public let currentIntent: String
+    public let relatedToPrevious: Bool
+    public let timestamp: Date
     
-    init(
+    public init(
         id: UUID = UUID(),
         conversationSummary: String,
         previousAnswerSummary: PreviousAnswerSummary,
@@ -24,7 +24,7 @@ struct ConversationContext: Codable, Identifiable {
         self.timestamp = timestamp
     }
     
-    func toJSON() -> [String: Any] {
+    public func toJSON() -> [String: Any] {
         return [
             "context": [
                 "conversation_summary": conversationSummary,
@@ -38,10 +38,10 @@ struct ConversationContext: Codable, Identifiable {
     }
 }
 
-struct PreviousAnswerSummary: Codable {
-    let aiTechnicalSummary: String
+public struct PreviousAnswerSummary: Codable {
+    public let aiTechnicalSummary: String
     
-    init(aiTechnicalSummary: String) {
+    public init(aiTechnicalSummary: String) {
         self.aiTechnicalSummary = aiTechnicalSummary
     }
 }

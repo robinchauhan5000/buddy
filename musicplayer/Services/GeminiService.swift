@@ -381,9 +381,10 @@ final class GeminiService {
                         return
                     }
                     
-                    let parser = StreamingResponseParser()
+                    var parser = StreamParser()
+                    var streamedText = ""
                     var chunkCount = 0
-                    var totalContent = ""
+                    var receivedLog = ""
                     
                     print("🌊 Starting to receive Gemini SSE stream...")
                     
@@ -411,27 +412,50 @@ final class GeminiService {
                             }
                             
                             chunkCount += 1
-                            totalContent.append(text)
-                            
-                            if chunkCount % 10 == 0 {
-                                print("📦 Chunk #\(chunkCount): +\(text.count) chars (total: \(totalContent.count))")
+                            receivedLog.append(text)
+                            if chunkCount <= 3 || chunkCount % 25 == 0 {
+                                let preview = text.count > 60 ? String(text.prefix(60)) + "…" : text
+                                print("📥 Gemini Chunk #\(chunkCount): \(text.count) chars — \"\(preview.replacingOccurrences(of: "\n", with: "↵"))\"")
                             }
                             
-                            if let response = parser.addChunk(text) {
-                                continuation.yield(response)
+                            // Parse chunk and emit events
+                            let events = parser.parse(chunk: text)
+                            for event in events {
+                                switch event {
+                                case .token(let token):
+                                    // Stream token immediately to UI
+                                    streamedText.append(token)
+                                    continuation.yield(StreamingResponse(
+                                        title: "",
+                                        sections: [MessageSection(
+                                            type: .shortAnswer,
+                                            content: .text(streamedText)
+                                        )],
+                                        isComplete: false
+                                    ))
+                                    
+                                case .completed(let aiResponse):
+                                    // Emit final structured response
+                                    print("✅ JSON parsed successfully!")
+                                    print("   Title: \(aiResponse.title)")
+                                    print("   Sections: \(aiResponse.sections.count)")
+                                    continuation.yield(StreamingResponse(
+                                        title: aiResponse.title,
+                                        sections: aiResponse.sections,
+                                        isComplete: true
+                                    ))
+                                }
                             }
                         }
                     }
                     
                     print("🏁 Stream ended")
                     print("📊 Total chunks received: \(chunkCount)")
-                    print("📊 Total content length: \(totalContent.count) chars")
-                    print("🔍 Attempting to finalize...")
-                    
-                    if let response = parser.finalize() {
-                        continuation.yield(response)
+                    print("📊 Total content length: \(streamedText.count) chars")
+                    print("📄 Full received response (\(receivedLog.count) chars) — first 400: \(receivedLog.prefix(400))")
+                    if receivedLog.count > 400 {
+                        print("📄 ... last 200: \(receivedLog.suffix(200))")
                     }
-                    
                     print("✅ Stream processing complete")
                     
                     continuation.finish()

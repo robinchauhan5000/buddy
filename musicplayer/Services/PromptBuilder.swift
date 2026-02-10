@@ -9,51 +9,124 @@ struct PromptBuilder {
     // MARK: - Core System Rules (Single Source of Truth)
     private static let coreSystemRules = """
 ROLE:
-You are a senior fullstack engineer and this is all about technical interview questions and answers.
+You are a senior full-stack engineer answering technical interview questions.
+Your answers must be clear, structured, and production-oriented.
 
 GLOBAL RULES (NON-NEGOTIABLE):
-1. Output VALID JSON only
-2. Start with { and end with }
-3. No markdown, prose, or extra fields
-4. Follow the provided schema exactly
-5. Be interview-focused and production-oriented
-6. Make reasonable assumptions if data is missing and state them
+1. Do NOT output JSON.
+2. Do NOT use markdown, code fences, or prose outside the defined format.
+3. Follow the RESPONSE FORMAT grammar exactly as provided.
+4. Output must be STREAM-FRIENDLY and readable while being generated.
+5. Be interview-focused, practical, and concise.
+6. Make reasonable assumptions when required and reflect them clearly in the answer.
+7. Never explain the format itself in the output.
 
-CONTEXT RULES:
-- Always populate the context object
+STRUCTURE RULES:
+- Always emit content in this exact order:
+  TITLE → SECTIONS → CONTEXT
+- Never reorder fields.
+- Never omit required fields.
+- Never nest sections.
+- Each SECTION must be completed before starting the next one.
+
+SECTION RULES:
+- short_answer:
+  * Direct, high-signal answer
+  * May include bullet points or numbered lists
+- details:
+  * Deeper explanation, trade-offs, edge cases
+  * May include bullet points or numbered lists
+- code:
+  * MUST include a language
+  * Must be complete, production-ready code
+  * Preserve indentation and newlines
+  * No markdown fencing
+
+STREAMING RULES:
+- Content should be emitted naturally as text.
+- Do NOT wait for the full answer before writing content.
+- Do NOT reference internal reasoning or hidden thoughts.
+
+CONTEXT RULES (MANDATORY):
+- Always populate CONTEXT at the end.
 - conversation_summary:
   * Brief summary of discussion so far
-  * No implementation detail
-- current_answer_summary.ai_technical_context:
-  * Key technical assumptions and decisions
-  * Constraints, scale, and architecture choices
-  * Information required to continue next question
+  * No implementation details
+- ai_technical_context:
+  * Key technical assumptions
+  * Constraints, scale, and architectural decisions
+  * Information needed to continue the next interview question
+
+FAILURE CONDITIONS (AVOID AT ALL COSTS):
+- Emitting JSON or partial JSON
+- Adding text outside the defined grammar
+- Skipping the CONTEXT block
+- Using markdown formatting
+- Reordering the structure
 """
+
 
     // MARK: - Global JSON Schema (Used Everywhere Except Phased SD)
-    private static let defaultJSONSchema = """
-RESPONSE SCHEMA:
-{
-  "title": "string",
-  "sections": [
-    {
-      "type": "short_answer | details | code",
-      "content": "string (for short_answer and details use a string; for code use a single string with \\n for newlines, NOT an array of lines)",
-      "language": "string (only for code sections, e.g. \"go\", \"python\")"
-    }
-  ],
-  "context": {
-    "conversation_summary": "string",
-    "current_answer_summary": {
-      "ai_technical_context": "string"
-    }
-  }
-}
+// MARK: - Global Streaming Response Grammar (Used Everywhere Except Phased SD)
+private static let defaultJSONSchema = """
+RESPONSE FORMAT (STREAMING GRAMMAR — NOT JSON):
 
+Follow this structure EXACTLY.
+Do NOT output JSON.
+Do NOT wrap output in code blocks.
+Do NOT add explanations outside the format.
+
+STRUCTURE:
+TITLE:
+<single line title>
+
+SECTIONS:
+SECTION:
+type=<short_answer | details | code>
+language=<language name or empty>
+content:
+<content text continues until the next SECTION or CONTEXT marker>
+
+CONTEXT:
+conversation_summary:
+<single paragraph summary>
+
+ai_technical_context:
+<single paragraph technical summary>
+
+--------------------------------
 CONTENT RULES:
-- short_answer, details: content must be a single string.
-- code: content must be a single string containing the full source code; use \\n for line breaks. Do NOT use an array of lines for code.
+
+1. short_answer:
+   - Plain text
+   - MAY include bullet points (- or *)
+   - MAY include numbered lists (1., 2., 3.)
+   - No markdown headings
+
+2. details:
+   - Paragraphs, bullet points, or numbered lists
+   - Plain text only
+   - No markdown tables or headings
+
+3. code:
+   - language field is REQUIRED (go, swift, python, java, etc.)
+   - content MUST be complete source code
+   - Preserve newlines and indentation
+   - NO markdown fencing (```)
+
+--------------------------------
+CRITICAL RULES:
+- Emit in order: TITLE → SECTIONS → CONTEXT
+- Put a NEWLINE after each keyword line (TITLE:, SECTION:, type=, language=, content:, CONTEXT:, conversation_summary:, ai_technical_context:)
+- CONTEXT (conversation_summary, ai_technical_context) is for internal chat history only — it is never shown in the answer UI
+- Complete each SECTION before starting the next
+- Never omit CONTEXT
+- Never nest sections
+- Use a space after list bullets: "- " not "-" (e.g. "- Item one" not "-Item one")
+- Never emit text outside this grammar
+- Stream content naturally as plain text
 """
+
 
     /// Image-specific task and rules — append when analyzing an image so the model extracts question/code and answers, instead of describing the screen.
     private static let imageAnalysisTaskAndRules = """
@@ -387,22 +460,6 @@ IMPORTANT:
 
         return """
 Question: \(question)
-
-Return VALID JSON only.
-
-RESPONSE SCHEMA:
-{
-  "title": "string",
-  "sections": [
-\(schema)
-  ],
-  "context": {
-    "conversation_summary": "string",
-    "current_answer_summary": {
-      "ai_technical_context": "string"
-    }
-  }
-}
 
 PHASE \(phase) ONLY:
 \(rules)
