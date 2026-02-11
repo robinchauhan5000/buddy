@@ -164,20 +164,23 @@ final class ChatViewModel: ObservableObject {
             }
             return
         }
-
-        guard speechRecognitionService.isAuthorized else {
-            print("Speech recognition not authorized")
-            return
-        }
-
-        do {
-            recordingBaseText = currentInput
-            try speechRecognitionService.startRecording()
-            isRecording = true
-        } catch SpeechRecognitionError.notAuthorized {
-            print("Speech recognition not authorized")
-        } catch {
-            print("Failed to start recording: \(error.localizedDescription)")
+        
+        Task {
+            await speechRecognitionService.requestAuthorization()
+            guard speechRecognitionService.isAuthorized else {
+                print("Speech recognition not authorized")
+                return
+            }
+            
+            do {
+                recordingBaseText = currentInput
+                try speechRecognitionService.startRecording()
+                isRecording = true
+            } catch SpeechRecognitionError.notAuthorized {
+                print("Speech recognition not authorized")
+            } catch {
+                print("Failed to start recording: \(error.localizedDescription)")
+            }
         }
     }
 

@@ -19,6 +19,8 @@ final class ScreenshotService: ObservableObject {
     @Published var capturedScreenshots: [ScreenshotData] = []
     @Published var isCapturing: Bool = false
     
+    private var hasRequestedScreenRecordingPermission = false
+    
     /// Capture a screenshot of the entire screen.
     /// Uses ScreenCaptureKit directly first; only falls back to CGPreflightScreenCaptureAccess()
     /// when content is empty, because the preflight check is known to return false even after
@@ -34,15 +36,13 @@ final class ScreenshotService: ObservableObject {
         do {
             content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
         } catch {
-            if !CGPreflightScreenCaptureAccess() {
-                CGRequestScreenCaptureAccess()
-            }
+            requestScreenRecordingPermissionIfNeeded()
             throw ScreenshotError.permissionDenied
         }
         
         guard let display = content.displays.first else {
+            requestScreenRecordingPermissionIfNeeded()
             if !CGPreflightScreenCaptureAccess() {
-                CGRequestScreenCaptureAccess()
                 throw ScreenshotError.permissionDenied
             }
             throw ScreenshotError.noDisplayFound
@@ -97,6 +97,15 @@ final class ScreenshotService: ObservableObject {
             return nil
         }
         return bitmapImage.representation(using: .png, properties: [:])
+    }
+    
+    private func requestScreenRecordingPermissionIfNeeded() {
+        guard !CGPreflightScreenCaptureAccess(),
+              !hasRequestedScreenRecordingPermission else {
+            return
+        }
+        hasRequestedScreenRecordingPermission = true
+        CGRequestScreenCaptureAccess()
     }
 }
 

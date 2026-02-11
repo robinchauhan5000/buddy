@@ -3,9 +3,21 @@ import Foundation
 final class OpenAIService: AIModel {
     private let httpClient: HTTPClient
     private let apiKey: String
-    private static let model = "gpt-4o"
-    private static let visionModel = "gpt-4o"
-    
+
+    /// Model per category (OpenAI): Normal/System Design/Technical/Coding use full models; Short/Quick/TrueFalse use fast.
+    private static func model(for category: Category) -> String {
+        switch category {
+        case .normal: return "gpt-4o"
+        case .shortAnswers: return "gpt-4.2"
+        case .quickAnswers: return "gpt-4o"
+        case .trueFalse: return "gpt-4o-mini"
+        case .systemDesign: return "gpt-5.2"
+        case .scenarioBasedSystemDesign: return "gpt-4.2"
+        case .technical: return "gpt-5.2"
+        case .coding: return "gpt-5.2"
+        }
+    }
+
     init(apiKey: String) {
         self.apiKey = apiKey
         self.httpClient = HTTPClient(
@@ -14,7 +26,7 @@ final class OpenAIService: AIModel {
                 "Content-Type": "application/json",
                 "Authorization": "Bearer \(apiKey)"
             ],
-            timeout: 120
+            timeout: 180
         )
     }
     
@@ -61,7 +73,7 @@ final class OpenAIService: AIModel {
         }
         
         let body: [String: Any] = [
-            "model": imageData != nil ? Self.visionModel : Self.model,
+            "model": Self.model(for: category),
             "messages": messages,
             "response_format": ["type": "json_object"]
         ]
@@ -124,6 +136,7 @@ final class OpenAIService: AIModel {
             systemPrompt: systemPrompt,
             prompt: userPrompt,
             language: language,
+            category: category,
             imageData: imageData,
             conversationContext: conversationContext
         )
@@ -184,6 +197,7 @@ final class OpenAIService: AIModel {
                             systemPrompt: baseSystemPrompt,
                             prompt: userPrompt,
                             language: language,
+                            category: .systemDesign,
                             imageData: phaseImageData,
                             conversationContext: conversationContext
                         )
@@ -256,6 +270,7 @@ final class OpenAIService: AIModel {
         systemPrompt: String,
         prompt: String,
         language: ProgrammingLanguage,
+        category: Category,
         imageData: Data?,
         conversationContext: [[String: Any]] = []
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
@@ -314,7 +329,7 @@ final class OpenAIService: AIModel {
                 }
                 
                 let body: [String: Any] = [
-                    "model": imageData != nil ? Self.visionModel : Self.model,
+                    "model": Self.model(for: category),
                     "stream": true,
                     "messages": messages,
                     "response_format": ["type": "json_object"]
