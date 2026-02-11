@@ -145,7 +145,7 @@ final class GeminiService {
         useInterviewCounterQuestion: Bool = false,
         realTimeStreamingEnabled: Bool = false
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
-        if !realTimeStreamingEnabled && category == .systemDesign && !useInterviewCounterQuestion {
+        if category == .systemDesign && !useInterviewCounterQuestion {
             return streamPhasedSystemDesign(
                 prompt: prompt,
                 language: language,
@@ -186,7 +186,7 @@ final class GeminiService {
                 var phaseSections: [Int: [MessageSection]] = [:]
                 var title = ""
                 let baseSystemPrompt = PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language)
-                let lastPhase = 15
+                let lastPhase = 16
                 let questionForPhases = prompt.isEmpty ? "System design question from image" : prompt
                 
                 do {

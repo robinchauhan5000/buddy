@@ -3,7 +3,7 @@ import Foundation
 struct PromptBuilder {
 
     // MARK: - Constants
-    static let systemDesignMaxPhase = 15
+    static let systemDesignMaxPhase = 16
     static let systemDesignOptionalCodePhase = 15
 
     // MARK: - Core System Rules (Single Source of Truth)
@@ -30,7 +30,11 @@ CONTEXT RULES:
   * Information required to continue next question
 """
 
-private static let coreSystemRules2 = """
+    /// Streaming grammar template – code example uses dynamic language in getBaseRulesStreaming.
+    private static func coreSystemRules2Streaming(language: ProgrammingLanguage) -> String {
+        let langId = language.codeIdentifier
+        let langName = language.rawValue
+        return """
 ROLE:
 You are a senior fullstack engineer answering technical interview questions.
 
@@ -43,6 +47,8 @@ Do NOT wrap in backticks.
 Do NOT escape newlines.
 
 The response is a STREAMING BLOCK PROTOCOL.
+
+REQUESTED LANGUAGE FOR CODE: \(langName) (use language=\(langId) in code section tags).
 
 GRAMMAR:
 
@@ -63,10 +69,8 @@ Text block.
 Indentation allowed.
 <</SECTION>>
 
-<<SECTION:type=code language=go>>
-func main() {
-    fmt.Println("Hello")
-}
+<<SECTION:type=code language=\(langId)>>
+Example code in \(langName) here.
 <</SECTION>>
 
 <<CONTEXT>>
@@ -88,7 +92,9 @@ IMPORTANT RULES:
 - Never compress whitespace.
 - Never remove leading spaces in code.
 - CONTEXT must appear LAST.
+- You will see "STREAMING SECTIONS FOR THIS CATEGORY" below: output ONLY the sections listed for that category; do not add extra section types (e.g. do not add code if the category says omit code).
 """
+    }
 
 
     // MARK: - Global JSON Schema (Used Everywhere Except Phased SD)
@@ -215,10 +221,13 @@ TONE:
             let categoryPrompt = useInterviewCounterQuestion
                 ? getInterviewCounterQuestionPrompt()
                 : getCategoryPrompt(for: category, language: language)
+            let streamingSectionRules = getStreamingSectionRulesForCategory(category, language: language)
             return """
 \(base)
 
 \(categoryPrompt)
+
+\(streamingSectionRules)
 """
         }
         let base = getBaseRules(language: language)
@@ -259,7 +268,7 @@ LANGUAGE:
 
     private static func getBaseRulesStreaming(language: ProgrammingLanguage) -> String {
         """
-\(coreSystemRules2)
+\(coreSystemRules2Streaming(language: language))
 
 EXPERTISE:
 - Distributed systems & microservices
@@ -385,6 +394,60 @@ Precise and confident
 """
     }
 
+    // MARK: - Streaming: which sections to output per category (so model follows question type)
+    private static func getStreamingSectionRulesForCategory(_ category: Category, language: ProgrammingLanguage) -> String {
+        switch category {
+        case .shortAnswers:
+            return """
+STREAMING SECTIONS FOR THIS CATEGORY (Rapid Interview – follow exactly):
+- Output ONLY <<SECTION:type=short_answer>> (required; 1–3 sentences).
+- Optionally <<SECTION:type=details>> only if truly needed (≤5 bullets). Omit if the answer fits in short_answer.
+- Do NOT output <<SECTION:type=code>> unless the question explicitly asks for code.
+"""
+        case .quickAnswers:
+            return """
+STREAMING SECTIONS FOR THIS CATEGORY (Quick Answers – follow exactly):
+- Output <<SECTION:type=short_answer>> with the quick answer (required).
+- Optionally <<SECTION:type=details>> for a brief expansion. Keep both short.
+- Do NOT output code unless the question explicitly requires it.
+"""
+        case .trueFalse:
+            return """
+STREAMING SECTIONS FOR THIS CATEGORY (True/False – follow exactly):
+- Output <<SECTION:type=short_answer>> with only "True" or "False" (required).
+- Output <<SECTION:type=details>> with why the answer is true/false. Do NOT output code unless the question asks for it.
+"""
+        case .coding:
+            return """
+STREAMING SECTIONS FOR THIS CATEGORY (Coding – follow exactly):
+- Output <<SECTION:type=short_answer>> with approach and reasoning (required).
+- Output <<SECTION:type=code language=\(language.codeIdentifier)>> with the complete working solution (required). Use \(language.rawValue).
+- Output <<SECTION:type=details>> with complexity, edge cases, alternatives. Order: short_answer then code then details.
+"""
+        case .normal:
+            return """
+STREAMING SECTIONS FOR THIS CATEGORY (Standard – follow exactly):
+- Output <<SECTION:type=short_answer>> (direct explanation).
+- Output <<SECTION:type=details>> for key points or examples.
+- Output <<SECTION:type=code>> only if it improves clarity; omit code if not needed.
+"""
+        case .technical:
+            return """
+STREAMING SECTIONS FOR THIS CATEGORY (Technical Deep Dive – follow exactly):
+- Output <<SECTION:type=short_answer>> (core concept).
+- Output <<SECTION:type=details>> for trade-offs and best practices.
+- Output <<SECTION:type=code>> only for patterns or examples when useful; omit if not needed.
+"""
+        case .systemDesign, .scenarioBasedSystemDesign:
+            return """
+STREAMING SECTIONS FOR THIS CATEGORY (System Design – follow exactly):
+- Output <<SECTION:type=short_answer>> for the high-level approach or problem statement.
+- Output <<SECTION:type=details>> for requirements, components, trade-offs (main content). Use bullets; one idea per bullet.
+- Output <<SECTION:type=code>> only if you are showing a concrete snippet (e.g. config, interface); omit otherwise.
+"""
+        }
+    }
+
     private static func getSystemDesignPrompt() -> String {
         """
 CATEGORY: System Design Interview
@@ -429,18 +492,19 @@ REQUIRED SECTIONS (ORDERED):
 1. problem_restatement
 2. functional_requirements
 3. non_functional_requirements
-4. high_level_functional_flow
-5. system_boundaries_and_assumptions
-6. services_we_will_create
+4. mermaid_diagram
+5. services_we_will_create
+6. high_level_functional_flow
 7. detailed_service_flow
-8. data_model_and_storage_design
+8. system_boundaries_and_assumptions
 9. data_flow_between_services
-10. deduplication_and_idempotency
-11. reporting_monitoring_observability
-12. high_level_design
+10. high_level_design
+11. data_model_and_storage_design
+12. trade_offs_and_alternatives
 13. scalability_strategy
-14. trade_offs_and_alternatives
+14. reporting_monitoring_observability
 15. failure_scenarios_and_recovery
+16. deduplication_and_idempotency
 
 IMPORTANT:
 - Context must summarize decisions made in this answer
@@ -503,77 +567,72 @@ IMPORTANT:
 """
     }
 
-    // MARK: - Phase Schema
+    // MARK: - Phase Schema (phase number → section type; order 1–16)
     private static func getSystemDesignPhaseSchema(_ phase: Int) -> String {
-        let types = [
+        let types: [Int: String] = [
             1: "problem_restatement",
             2: "functional_requirements",
             3: "non_functional_requirements",
-            4: "high_level_functional_flow",
-            5: "system_boundaries_and_assumptions",
-            6: "services_we_will_create",
+            4: "mermaid_diagram",
+            5: "services_we_will_create",
+            6: "high_level_functional_flow",
             7: "detailed_service_flow",
-            8: "data_model_and_storage_design",
+            8: "system_boundaries_and_assumptions",
             9: "data_flow_between_services",
-            10: "deduplication_and_idempotency",
-            11: "reporting_monitoring_observability",
-            12: "high_level_design",
+            10: "high_level_design",
+            11: "data_model_and_storage_design",
+            12: "trade_offs_and_alternatives",
             13: "scalability_strategy",
-            14: "trade_offs_and_alternatives",
-            15: "failure_scenarios_and_recovery"
+            14: "reporting_monitoring_observability",
+            15: "failure_scenarios_and_recovery",
+            16: "deduplication_and_idempotency"
         ]
-
         let type = types[phase] ?? "problem_restatement"
         return #"    { "type": "\#(type)", "content": ["string"] }"#
     }
 
-    // MARK: - Phase Rules (FULL)
+    // MARK: - Phase Rules (FULL) — Order 1–16 matches schema and buildSystemDesignFullUserPrompt
     private static func getSystemDesignPhaseRules(_ phase: Int) -> String {
         switch phase {
-
-        case 1:
+        case 4:
             return """
 PHASE 1 — PROBLEM RESTATEMENT
 - Explain the problem in simple, non-technical terms
 - Describe what is being built and why
 """
-
         case 2:
             return """
 PHASE 2 — FUNCTIONAL REQUIREMENTS
 - List user-facing requirements
 - Describe what the system must do
 """
-
         case 3:
             return """
 PHASE 3 — NON-FUNCTIONAL REQUIREMENTS
 - Scalability, availability, latency
 - Consistency, security, operations
 """
-
-        case 4:
+        case 1:
             return """
-PHASE 4 — HIGH-LEVEL FUNCTIONAL FLOW
-- Step-by-step logical flow
-- Technology-agnostic
-"""
+PHASE 4 — MERMAID DIAGRAM FLOWCHART
 
+- Create a Mermaid flowchart for the system design based on the problem and requirements above.
+- Output the diagram in a section with type "mermaid_diagram" (content: the Mermaid source only).
+
+- Use correct Mermaid flowchart syntax so the diagram renders: graph TD or flowchart LR, nodes as [Label] or ID[Label], edges as --> or -->|edge label|. For path or parameter placeholders in labels use angle brackets only, e.g. |GET /<code>| not |GET /{code}|. Write only valid Mermaid that will parse and display without errors.
+"""
         case 5:
             return """
-PHASE 5 — SYSTEM BOUNDARIES & ASSUMPTIONS
-- In-scope
-- Out-of-scope
-- Assumptions and dependencies
-"""
-
-        case 6:
-            return """
-PHASE 6 — SERVICES WE WILL CREATE
+PHASE 5 — SERVICES WE WILL CREATE
 - List services
 - Single responsibility per service
 """
-
+        case 6:
+            return """
+PHASE 6 — HIGH-LEVEL FUNCTIONAL FLOW
+- Step-by-step logical flow
+- Technology-agnostic
+"""
         case 7:
             return """
 PHASE 7 — DETAILED SERVICE FLOW
@@ -581,15 +640,13 @@ PHASE 7 — DETAILED SERVICE FLOW
 - Error handling
 - Sync vs async
 """
-
         case 8:
             return """
-PHASE 8 — DATA MODEL & STORAGE DESIGN
-- Entities and relationships
-- Storage choices
-- Access patterns
+PHASE 8 — SYSTEM BOUNDARIES & ASSUMPTIONS
+- In-scope
+- Out-of-scope
+- Assumptions and dependencies
 """
-
         case 9:
             return """
 PHASE 9 — DATA FLOW BETWEEN SERVICES
@@ -607,50 +664,50 @@ Include:
 - Normal flow
 - Failure flow
 """
-
         case 10:
             return """
-PHASE 10 — DEDUPLICATION & IDEMPOTENCY
-- Idempotency strategies
-- Handling retries and duplicates
-"""
-
-        case 11:
-            return """
-PHASE 11 — REPORTING, MONITORING & OBSERVABILITY
-- Metrics
-- Logs
-- Alerts
-"""
-
-        case 12:
-            return """
-PHASE 12 — HIGH-LEVEL DESIGN
+PHASE 10 — HIGH-LEVEL DESIGN
 - Overall architecture
 - Component interaction
 """
-
+        case 11:
+            return """
+PHASE 11 — DATA MODEL & STORAGE DESIGN
+- Entities and relationships
+- Storage choices
+- Access patterns
+"""
+        case 12:
+            return """
+PHASE 12 — TRADE-OFFS & ALTERNATIVES
+- Decisions made
+- Pros and cons
+"""
         case 13:
             return """
 PHASE 13 — SCALABILITY STRATEGY
 - Bottlenecks
 - Horizontal and vertical scaling
 """
-
         case 14:
             return """
-PHASE 14 — TRADE-OFFS & ALTERNATIVES
-- Decisions made
-- Pros and cons
+PHASE 14 — REPORTING, MONITORING & OBSERVABILITY
+- Metrics
+- Logs
+- Alerts
 """
-
         case 15:
             return """
 PHASE 15 — FAILURE SCENARIOS & RECOVERY
 - Failure handling
 - Recovery strategies
 """
-
+        case 16:
+            return """
+PHASE 16 — DEDUPLICATION & IDEMPOTENCY
+- Idempotency strategies
+- Handling retries and duplicates
+"""
         default:
             return "Explain clearly and concisely."
         }

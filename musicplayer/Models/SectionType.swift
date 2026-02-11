@@ -22,6 +22,7 @@ enum SectionType: String, Codable {
     case scalabilityStrategy = "scalability_strategy"
     case tradeOffsAndAlternatives = "trade_offs_and_alternatives"
     case failureScenariosAndRecovery = "failure_scenarios_and_recovery"
+    case mermaidDiagram = "mermaid_diagram"
 
     var displayName: String {
         switch self {
@@ -64,6 +65,8 @@ enum SectionType: String, Codable {
             return "Trade-offs & Alternatives"
         case .failureScenariosAndRecovery:
             return "Failure Scenarios & Recovery"
+        case .mermaidDiagram:
+            return "Mermaid Diagram"
         }
     }
 }

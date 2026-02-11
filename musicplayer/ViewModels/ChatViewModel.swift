@@ -338,16 +338,12 @@ final class ChatViewModel: ObservableObject {
             if let payload = streamingContextPayload, let context = parseStreamingContextPayload(question: question, payload: payload) {
                 conversationHistory.addContext(context)
                 print("💾 Context saved (streaming) - Total contexts: \(conversationHistory.count)")
-                print("   conversation_summary: \(context.conversationSummary.prefix(200))\(context.conversationSummary.count > 200 ? "…" : "")")
-                print("   ai_technical_summary: \(context.previousAnswerSummary.aiTechnicalSummary.prefix(200))\(context.previousAnswerSummary.aiTechnicalSummary.count > 200 ? "…" : "")")
-                print("   current_intent: \(context.currentIntent)")
+                conversationHistory.logAllContextsFull()
             } else if case .structured(let aiResponse) = content {
                 let context = extractConversationContext(question: question, response: aiResponse)
                 conversationHistory.addContext(context)
                 print("💾 Context saved - Total contexts: \(conversationHistory.count)")
-                print("   conversation_summary: \(context.conversationSummary.prefix(200))\(context.conversationSummary.count > 200 ? "…" : "")")
-                print("   ai_technical_summary: \(context.previousAnswerSummary.aiTechnicalSummary.prefix(200))\(context.previousAnswerSummary.aiTechnicalSummary.count > 200 ? "…" : "")")
-                print("   current_intent: \(context.currentIntent)")
+                conversationHistory.logAllContextsFull()
             }
         } else {
             print("○ Context NOT saved - Continue Conversation is disabled")

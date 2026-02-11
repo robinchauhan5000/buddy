@@ -140,8 +140,10 @@ struct MessageBubbleView: View {
                 .foregroundColor(DesignSystem.Colors.textPrimary)
                 .textSelection(.enabled)
             
-            ForEach(response.sections) { section in
-                sectionView(section)
+            ForEach(Array(response.sections.enumerated()), id: \.element.id) { index, section in
+                // Phase 4 mermaid_diagram: render diagram only once phase 5 has started (we have all phase 4 data).
+                let phase4Complete = index < response.sections.count - 1
+                sectionView(section, phase4MermaidComplete: phase4Complete)
             }
         }
         .padding(DesignSystem.Spacing.lg)
@@ -151,21 +153,79 @@ struct MessageBubbleView: View {
     }
     
     @ViewBuilder
-    private func sectionView(_ section: MessageSection) -> some View {
+    private func sectionView(_ section: MessageSection, phase4MermaidComplete: Bool = true) -> some View {
         VStack(alignment: .leading, spacing: DesignSystem.Spacing.sm) {
             sectionHeaderView(for: section.type)
             
             switch section.content {
             case .text(let text):
-                if section.type == .code {
-                    codeBlockView(text, language: section.language)
+                if section.type == .mermaidDiagram {
+                    // Render phase 4 Mermaid only when phase 5 has started (we have full diagram data).
+                    if phase4MermaidComplete {
+                        mermaidBlockView(mermaidCode: text)
+                    } else {
+                        codeBlockView(text, language: "mermaid")
+                    }
+                } else if section.type == .code {
+                    if MessageBubbleView.isMermaidContent(text, language: section.language) {
+                        mermaidOrStreamingView(text: text, language: section.language)
+                    } else {
+                        codeBlockView(text, language: section.language)
+                    }
+                } else if MessageBubbleView.isMermaidContent(text, language: nil) {
+                    mermaidOrStreamingView(text: text, language: nil)
                 } else {
                     textContentView(text)
                 }
             case .list(let items):
-                listContentView(items)
+                let combined = items.joined(separator: "\n")
+                if section.type == .mermaidDiagram {
+                    if phase4MermaidComplete {
+                        mermaidBlockView(mermaidCode: combined)
+                    } else {
+                        codeBlockView(combined, language: "mermaid")
+                    }
+                } else if MessageBubbleView.isMermaidContent(combined, language: nil) {
+                    mermaidOrStreamingView(text: combined, language: nil)
+                } else {
+                    listContentView(items)
+                }
             }
         }
+    }
+    
+    /// Show raw code while streaming (incomplete Mermaid would cause syntax error); render diagram when complete.
+    @ViewBuilder
+    private func mermaidOrStreamingView(text: String, language: String?) -> some View {
+        if message.isStreaming {
+            codeBlockView(text, language: language ?? "mermaid")
+        } else {
+            mermaidBlockView(mermaidCode: text)
+        }
+    }
+    
+    private func mermaidBlockView(mermaidCode: String) -> some View {
+        MermaidDiagramBlockView(mermaidCode: mermaidCode)
+            .cornerRadius(DesignSystem.CornerRadius.md)
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
+                    .stroke(DesignSystem.Colors.border, lineWidth: 1)
+            )
+    }
+    
+    /// Only treat as Mermaid when explicitly tagged or content starts with a Mermaid diagram declaration.
+    /// Do not use loose patterns like "->" or "---" — those appear in normal flow text (e.g. "ServiceA -> ServiceB").
+    private static func isMermaidContent(_ text: String, language: String?) -> Bool {
+        let raw = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if raw.isEmpty { return false }
+        if language?.lowercased() == "mermaid" { return true }
+        let lower = raw.lowercased()
+        if lower.hasPrefix("graph ") || lower.hasPrefix("flowchart ") { return true }
+        if lower.hasPrefix("sequencediagram") { return true }
+        if lower.hasPrefix("classdiagram") { return true }
+        if lower.hasPrefix("statediagram") { return true }
+        if lower.hasPrefix("erDiagram") || lower.hasPrefix("erdiagram") { return true }
+        return false
     }
     
     private func sectionHeaderView(for type: SectionType) -> some View {

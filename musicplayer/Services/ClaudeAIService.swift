@@ -117,7 +117,7 @@ final class ClaudeAIService: AIModel {
         useInterviewCounterQuestion: Bool = false,
         realTimeStreamingEnabled: Bool = false
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
-        if !realTimeStreamingEnabled && category == .systemDesign && !useInterviewCounterQuestion {
+        if category == .systemDesign && !useInterviewCounterQuestion {
             return streamPhasedSystemDesign(
                 prompt: prompt,
                 language: language,
@@ -319,7 +319,7 @@ final class ClaudeAIService: AIModel {
         imageData: Data? = nil
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
         let baseSystemPrompt = PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language)
-        let lastPhase = 15
+        let lastPhase = 16
         let questionForPhases = prompt.isEmpty ? "System design question from image" : prompt
         return AsyncThrowingStream { continuation in
             let task = Task {

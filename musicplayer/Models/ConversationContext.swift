@@ -91,4 +91,18 @@ struct ConversationContextHistory {
         }
         print("   --- END ConversationContext ---")
     }
+    
+    /// Log all stored contexts in full (no truncation). Use when saving or debugging.
+    func logAllContextsFull() {
+        guard !contexts.isEmpty else { return }
+        print("📋 [FULL] ConversationContext – \(contexts.count) context(s):")
+        for (index, ctx) in contexts.enumerated() {
+            print("   ---------- Context \(index + 1)/\(contexts.count) ----------")
+            print("   conversation_summary:\n\(ctx.conversationSummary)")
+            print("   ai_technical_summary:\n\(ctx.previousAnswerSummary.aiTechnicalSummary)")
+            print("   current_intent: \(ctx.currentIntent) | related_to_previous: \(ctx.relatedToPrevious)")
+            print("   ----------")
+        }
+        print("   --- END [FULL] ConversationContext ---")
+    }
 }
