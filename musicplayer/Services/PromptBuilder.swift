@@ -135,13 +135,14 @@ RULES:
         userQuestion: String?,
         category: Category = .coding,
         language: ProgrammingLanguage = .golang,
+        useInterviewCounterQuestion: Bool = false,
         realTimeStreamingEnabled: Bool = false
     ) -> String {
         let context = (userQuestion?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
         ? "USER CONTEXT:\n\(userQuestion!)"
         : ""
 
-        let promptForCategory = buildSystemPrompt(for: category, language: language, realTimeStreamingEnabled: realTimeStreamingEnabled)
+        let promptForCategory = buildSystemPrompt(for: category, language: language, useInterviewCounterQuestion: useInterviewCounterQuestion, realTimeStreamingEnabled: realTimeStreamingEnabled)
         let schemaBlock: String
         if realTimeStreamingEnabled {
             schemaBlock = ""
@@ -211,7 +212,9 @@ TONE:
     ) -> String {
         if realTimeStreamingEnabled {
             let base = getBaseRulesStreaming(language: language)
-            let categoryPrompt = getCategoryPrompt(for: category, language: language)
+            let categoryPrompt = useInterviewCounterQuestion
+                ? getInterviewCounterQuestionPrompt()
+                : getCategoryPrompt(for: category, language: language)
             return """
 \(base)
 
@@ -651,5 +654,30 @@ PHASE 15 — FAILURE SCENARIOS & RECOVERY
         default:
             return "Explain clearly and concisely."
         }
+    }
+
+    // MARK: - Debug: final prompt logging
+    static func printFinalPromptSent(
+        provider: String,
+        systemPrompt: String,
+        userPrompt: String,
+        conversationContextCount: Int = 0,
+        hasImage: Bool = false
+    ) {
+        let systemLimit = 2500
+        let userLimit = 1500
+        let systemPreview = systemPrompt.count <= systemLimit
+            ? systemPrompt
+            : String(systemPrompt.prefix(systemLimit)) + "\n... [truncated, total \(systemPrompt.count) chars]"
+        let userPreview = userPrompt.count <= userLimit
+            ? userPrompt
+            : String(userPrompt.prefix(userLimit)) + "\n... [truncated, total \(userPrompt.count) chars]"
+        print("📤 Final prompt sent to AI (\(provider))")
+        print("   System: \(systemPrompt.count) chars | User: \(userPrompt.count) chars | Contexts: \(conversationContextCount) | Image: \(hasImage)")
+        print("--- SYSTEM ---")
+        print(systemPreview)
+        print("--- USER ---")
+        print(userPreview)
+        print("--- END PROMPT ---")
     }
 }

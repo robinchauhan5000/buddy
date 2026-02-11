@@ -126,7 +126,7 @@ final class OpenAIService: AIModel {
         let userPrompt: String
         
         if imageData != nil {
-            systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt, category: category, language: language, realTimeStreamingEnabled: realTimeStreamingEnabled)
+            systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt, category: category, language: language, useInterviewCounterQuestion: useInterviewCounterQuestion, realTimeStreamingEnabled: realTimeStreamingEnabled)
             userPrompt = prompt.isEmpty ? "Analyze this image and provide the answer in the specified JSON format." : prompt
         } else {
             systemPrompt = PromptBuilder.buildSystemPrompt(for: category, language: language, useInterviewCounterQuestion: useInterviewCounterQuestion, realTimeStreamingEnabled: realTimeStreamingEnabled)
@@ -338,6 +338,8 @@ final class OpenAIService: AIModel {
                 if !realTimeStreamingEnabled {
                     body["response_format"] = ["type": "json_object"]
                 }
+                
+                PromptBuilder.printFinalPromptSent(provider: "OpenAI", systemPrompt: systemPrompt, userPrompt: prompt, conversationContextCount: conversationContext.count, hasImage: imageData != nil)
                 
                 request.httpBody = try? JSONSerialization.data(withJSONObject: body)
                 

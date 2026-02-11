@@ -16,6 +16,8 @@ final class BlockGrammarStreamParser {
     private var currentSectionType: SectionType?
     private var currentSectionLanguage: String?
     private var currentSectionContent: String = ""
+    private var parsedContextPayload: String?
+    private var contextBuffer: String = ""
 
     func addChunk(_ chunk: String) -> StreamingResponse? {
         buffer.append(chunk)
@@ -30,7 +32,8 @@ final class BlockGrammarStreamParser {
         return StreamingResponse(
             title: title,
             sections: sections,
-            isComplete: true
+            isComplete: true,
+            contextPayload: parsedContextPayload
         )
     }
 
@@ -51,6 +54,7 @@ final class BlockGrammarStreamParser {
                     state = .readingSectionHeader
                 } else if let range = buffer.range(of: "<<CONTEXT>>", options: .caseInsensitive) {
                     buffer.removeSubrange(buffer.startIndex..<range.upperBound)
+                    contextBuffer = ""
                     state = .readingContext
                 } else {
                     if let idx = buffer.firstIndex(of: "<") {
@@ -122,11 +126,19 @@ final class BlockGrammarStreamParser {
                 }
             case .readingContext:
                 if let range = buffer.range(of: "<</CONTEXT>>", options: .caseInsensitive) {
+                    contextBuffer += String(buffer[..<range.lowerBound])
+                    let content = contextBuffer.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !content.isEmpty { parsedContextPayload = content }
+                    contextBuffer = ""
                     buffer.removeSubrange(buffer.startIndex..<range.upperBound)
                     state = .idle
                 } else {
-                    let drop = min(buffer.count, 100)
-                    if drop > 0 { buffer.removeFirst(drop) }
+                    let keep = 14
+                    if buffer.count > keep {
+                        let toTake = buffer.count - keep
+                        contextBuffer += String(buffer.prefix(toTake))
+                        buffer.removeFirst(toTake)
+                    }
                     break
                 }
             }

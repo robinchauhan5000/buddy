@@ -220,12 +220,12 @@ final class ChatViewModel: ObservableObject {
         do {
             let imageData = screenshots.first?.imageData
             
-            // Get conversation context if enabled
+            // Get conversation context if enabled (previous chat history for next prompt)
             let contextData = continueConversation ? conversationHistory.getContextForPrompt() : []
             
-            // Debug logging
             if continueConversation {
-                print("✓ Continue Conversation ENABLED - Sending \(contextData.count) context(s) to AI")
+                print("✓ Continue Conversation ENABLED - Sending \(contextData.count) context(s) to AI as previous chat history")
+                conversationHistory.printContextsAsPreviousChatHistory()
             } else {
                 print("○ Continue Conversation DISABLED - No context sent to AI")
             }
@@ -290,14 +290,15 @@ final class ChatViewModel: ObservableObject {
                 )
             }
             
+            var lastResponse: StreamingResponse?
             for try await response in stream {
+                lastResponse = response
                 updateStreamingMessage(
                     messageId: messageId,
                     response: response
                 )
             }
-            
-            finalizeStreamingMessage(messageId: messageId, question: question)
+            finalizeStreamingMessage(messageId: messageId, question: question, streamingContextPayload: lastResponse?.contextPayload)
         } catch is CancellationError {
             stopStreamingState()
         } catch {
@@ -322,7 +323,7 @@ final class ChatViewModel: ObservableObject {
         )
     }
     
-    private func finalizeStreamingMessage(messageId: UUID, question: String) {
+    private func finalizeStreamingMessage(messageId: UUID, question: String, streamingContextPayload: String? = nil) {
         guard let index = messages.firstIndex(where: { $0.id == messageId }) else { return }
         
         let content = messages[index].content
@@ -333,22 +334,49 @@ final class ChatViewModel: ObservableObject {
             timestamp: messages[index].timestamp,
             isStreaming: false
         )
-        
-        // Extract and save conversation context if enabled
-        if continueConversation, case .structured(let aiResponse) = content {
-            let context = extractConversationContext(
-                question: question,
-                response: aiResponse
-            )
-            conversationHistory.addContext(context)
-            print("💾 Context saved - Total contexts: \(conversationHistory.count)")
-        } else if !continueConversation {
+        if continueConversation {
+            if let payload = streamingContextPayload, let context = parseStreamingContextPayload(question: question, payload: payload) {
+                conversationHistory.addContext(context)
+                print("💾 Context saved (streaming) - Total contexts: \(conversationHistory.count)")
+                print("   conversation_summary: \(context.conversationSummary.prefix(200))\(context.conversationSummary.count > 200 ? "…" : "")")
+                print("   ai_technical_summary: \(context.previousAnswerSummary.aiTechnicalSummary.prefix(200))\(context.previousAnswerSummary.aiTechnicalSummary.count > 200 ? "…" : "")")
+                print("   current_intent: \(context.currentIntent)")
+            } else if case .structured(let aiResponse) = content {
+                let context = extractConversationContext(question: question, response: aiResponse)
+                conversationHistory.addContext(context)
+                print("💾 Context saved - Total contexts: \(conversationHistory.count)")
+                print("   conversation_summary: \(context.conversationSummary.prefix(200))\(context.conversationSummary.count > 200 ? "…" : "")")
+                print("   ai_technical_summary: \(context.previousAnswerSummary.aiTechnicalSummary.prefix(200))\(context.previousAnswerSummary.aiTechnicalSummary.count > 200 ? "…" : "")")
+                print("   current_intent: \(context.currentIntent)")
+            }
+        } else {
             print("○ Context NOT saved - Continue Conversation is disabled")
         }
-        
         isProcessing = false
         streamBuffer = ""
         currentMessageId = nil
+    }
+    private func parseStreamingContextPayload(question: String, payload: String) -> ConversationContext? {
+        var convPart = ""
+        var techPart = ""
+        if let r = payload.range(of: "conversation_summary:", options: .caseInsensitive) {
+            let after = payload[r.upperBound...]
+            if let tr = after.range(of: "ai_technical_context:", options: .caseInsensitive) {
+                convPart = String(after[..<tr.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+                techPart = String(after[tr.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            } else {
+                convPart = String(after).trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        } else if let r = payload.range(of: "ai_technical_context:", options: .caseInsensitive) {
+            techPart = String(payload[r.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let conversationSummary = convPart.isEmpty ? "Question: \(question.prefix(150))" : "Question: \(question.prefix(100))\nSummary: \(convPart.prefix(300))"
+        return ConversationContext(
+            conversationSummary: conversationSummary,
+            previousAnswerSummary: PreviousAnswerSummary(aiTechnicalSummary: String(techPart.prefix(500))),
+            currentIntent: "deep_dive",
+            relatedToPrevious: true
+        )
     }
     
     private func extractConversationContext(

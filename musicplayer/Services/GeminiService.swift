@@ -157,7 +157,7 @@ final class GeminiService {
         let systemPrompt: String
         let userPrompt: String
         if imageData != nil {
-            systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt, category: category, language: language, realTimeStreamingEnabled: realTimeStreamingEnabled)
+            systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt, category: category, language: language, useInterviewCounterQuestion: useInterviewCounterQuestion, realTimeStreamingEnabled: realTimeStreamingEnabled)
             userPrompt = prompt.isEmpty ? "Analyze this image and provide the answer in the specified JSON format." : prompt
         } else {
             systemPrompt = PromptBuilder.buildSystemPrompt(for: category, language: language, useInterviewCounterQuestion: useInterviewCounterQuestion, realTimeStreamingEnabled: realTimeStreamingEnabled)
@@ -355,6 +355,8 @@ final class GeminiService {
                 if !realTimeStreamingEnabled {
                     body["generationConfig"] = ["response_mime_type": "application/json"]
                 }
+                
+                PromptBuilder.printFinalPromptSent(provider: "Gemini", systemPrompt: systemPrompt, userPrompt: prompt, conversationContextCount: conversationContext.count, hasImage: imageData != nil)
                 
                 request.httpBody = try? JSONSerialization.data(withJSONObject: body)
                 

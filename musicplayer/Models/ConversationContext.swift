@@ -78,4 +78,17 @@ struct ConversationContextHistory {
     var count: Int {
         return contexts.count
     }
+    
+    /// Print all stored contexts as they will be sent to the AI as previous chat history.
+    func printContextsAsPreviousChatHistory() {
+        guard !contexts.isEmpty else { return }
+        print("📋 ConversationContext (previous chat history) – \(contexts.count) context(s) used for next prompt:")
+        for (index, ctx) in contexts.enumerated() {
+            print("   --- Context \(index + 1)/\(contexts.count) ---")
+            print("   conversation_summary: \(ctx.conversationSummary.prefix(300))\(ctx.conversationSummary.count > 300 ? "…" : "")")
+            print("   ai_technical_summary: \(ctx.previousAnswerSummary.aiTechnicalSummary.prefix(300))\(ctx.previousAnswerSummary.aiTechnicalSummary.count > 300 ? "…" : "")")
+            print("   current_intent: \(ctx.currentIntent) | related_to_previous: \(ctx.relatedToPrevious)")
+        }
+        print("   --- END ConversationContext ---")
+    }
 }

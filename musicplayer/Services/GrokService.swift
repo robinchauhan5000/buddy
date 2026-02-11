@@ -41,7 +41,8 @@ final class GrokService {
         prompt: String,
         category: Category,
         language: ProgrammingLanguage,
-        imageData: Data? = nil
+        imageData: Data? = nil,
+        conversationContext: [[String: Any]] = []
     ) async throws -> AIResponse {
         let systemPrompt: String
         let userPrompt: String
@@ -60,6 +61,16 @@ final class GrokService {
         var messages: [[String: Any]] = [
             ["role": "system", "content": systemPrompt]
         ]
+        
+        if !conversationContext.isEmpty {
+            let contextString = conversationContext.compactMap { ctx -> String? in
+                (try? JSONSerialization.data(withJSONObject: ctx)).flatMap { String(data: $0, encoding: .utf8) }
+            }.joined(separator: "\n")
+            messages.append([
+                "role": "system",
+                "content": "Previous conversation context (chat history):\n\(contextString)"
+            ])
+        }
         
         if let imageData = imageData {
             let base64Image = imageData.base64EncodedString()
@@ -93,6 +104,7 @@ final class GrokService {
         print("  Endpoint: /chat/completions")
         print("  Model: \(Self.model)")
         print("  Has image: \(imageData != nil)")
+        PromptBuilder.printFinalPromptSent(provider: "Grok", systemPrompt: systemPrompt, userPrompt: userPrompt, conversationContextCount: conversationContext.count, hasImage: imageData != nil)
         if let jsonData = try? JSONSerialization.data(withJSONObject: body, options: .prettyPrinted),
            let jsonString = String(data: jsonData, encoding: .utf8) {
             print("  Body: \(jsonString)")
@@ -149,7 +161,7 @@ final class GrokService {
         let systemPrompt: String
         let userPrompt: String
         if imageData != nil {
-            systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt, category: category, language: language, realTimeStreamingEnabled: false)
+            systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt, category: category, language: language, useInterviewCounterQuestion: useInterviewCounterQuestion, realTimeStreamingEnabled: false)
             userPrompt = prompt.isEmpty ? "Analyze this image and provide the answer in the specified JSON format." : prompt
         } else {
             systemPrompt = PromptBuilder.buildSystemPrompt(for: category, language: language, useInterviewCounterQuestion: useInterviewCounterQuestion, realTimeStreamingEnabled: false)
@@ -159,7 +171,8 @@ final class GrokService {
             systemPrompt: systemPrompt,
             prompt: userPrompt,
             language: language,
-            imageData: imageData
+            imageData: imageData,
+            conversationContext: conversationContext
         )
     }
     
@@ -278,7 +291,8 @@ final class GrokService {
         systemPrompt: String,
         prompt: String,
         language: ProgrammingLanguage,
-        imageData: Data?
+        imageData: Data?,
+        conversationContext: [[String: Any]] = []
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
         AsyncThrowingStream { continuation in
             Task {
@@ -288,7 +302,8 @@ final class GrokService {
                         prompt: prompt,
                         category: .normal,
                         language: language,
-                        imageData: imageData
+                        imageData: imageData,
+                        conversationContext: conversationContext
                     )
                     
                     // Convert to streaming format
