@@ -22,7 +22,8 @@ struct SettingsView: View {
     @State private var geminiKey: String = ""
     @State private var showSaveConfirmation: Bool = false
     @State private var hasUnsavedChanges: Bool = false
-    
+    @State private var realTimeStreamingEnabled: Bool = false
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -116,6 +117,28 @@ struct SettingsView: View {
                     
                     Divider()
                         .background(DesignSystem.Colors.border)
+
+                    settingsSection(title: "Features") {
+                        VStack(alignment: .leading, spacing: DesignSystem.Spacing.md) {
+                            Toggle(isOn: $realTimeStreamingEnabled) {
+                                VStack(alignment: .leading, spacing: DesignSystem.Spacing.xs) {
+                                    Text("Real-time streaming")
+                                        .font(.system(size: DesignSystem.FontSize.md, weight: .medium))
+                                        .foregroundColor(DesignSystem.Colors.textPrimary)
+                                    Text("Use block grammar streaming (new). Off uses legacy JSON mode.")
+                                        .font(.system(size: DesignSystem.FontSize.sm))
+                                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                                }
+                            }
+                            .toggleStyle(.switch)
+                            .onChange(of: realTimeStreamingEnabled) { _, _ in
+                                AppConfig.realTimeStreamingEnabled = realTimeStreamingEnabled
+                            }
+                        }
+                    }
+                    
+                    Divider()
+                        .background(DesignSystem.Colors.border)
                     
                     // About Section
                     settingsSection(title: "About") {
@@ -143,6 +166,7 @@ struct SettingsView: View {
         .background(DesignSystem.Colors.background)
         .onAppear {
             loadAPIKeys()
+            realTimeStreamingEnabled = AppConfig.realTimeStreamingEnabled
             updateSharingType(isHidden: isScreenShareHidden)
         }
         .onChange(of: isScreenShareHidden) { _, newValue in

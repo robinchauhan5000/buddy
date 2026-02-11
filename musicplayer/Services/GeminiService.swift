@@ -142,9 +142,10 @@ final class GeminiService {
         includeOptionalCodePhase: Bool = false,
         imageData: Data? = nil,
         conversationContext: [[String: Any]] = [],
-        useInterviewCounterQuestion: Bool = false
+        useInterviewCounterQuestion: Bool = false,
+        realTimeStreamingEnabled: Bool = false
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
-        if category == .systemDesign && !useInterviewCounterQuestion {
+        if !realTimeStreamingEnabled && category == .systemDesign && !useInterviewCounterQuestion {
             return streamPhasedSystemDesign(
                 prompt: prompt,
                 language: language,
@@ -153,24 +154,22 @@ final class GeminiService {
                 imageData: imageData
             )
         }
-        
         let systemPrompt: String
         let userPrompt: String
-        
         if imageData != nil {
-            systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt, category: category, language: language)
+            systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt, category: category, language: language, realTimeStreamingEnabled: realTimeStreamingEnabled)
             userPrompt = prompt.isEmpty ? "Analyze this image and provide the answer in the specified JSON format." : prompt
         } else {
-            systemPrompt = PromptBuilder.buildSystemPrompt(for: category, language: language, useInterviewCounterQuestion: useInterviewCounterQuestion)
+            systemPrompt = PromptBuilder.buildSystemPrompt(for: category, language: language, useInterviewCounterQuestion: useInterviewCounterQuestion, realTimeStreamingEnabled: realTimeStreamingEnabled)
             userPrompt = prompt
         }
-        
         return streamGeminiResponse(
             systemPrompt: systemPrompt,
             prompt: userPrompt,
             language: language,
             imageData: imageData,
-            conversationContext: conversationContext
+            conversationContext: conversationContext,
+            realTimeStreamingEnabled: realTimeStreamingEnabled
         )
     }
     
@@ -292,7 +291,8 @@ final class GeminiService {
         prompt: String,
         language: ProgrammingLanguage,
         imageData: Data?,
-        conversationContext: [[String: Any]] = []
+        conversationContext: [[String: Any]] = [],
+        realTimeStreamingEnabled: Bool = false
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
         return AsyncThrowingStream { continuation in
             let task = Task {
@@ -351,12 +351,10 @@ final class GeminiService {
                     ])
                 }
                 
-                let body: [String: Any] = [
-                    "contents": contents,
-                    "generationConfig": [
-                        "response_mime_type": "application/json"
-                    ]
-                ]
+                var body: [String: Any] = ["contents": contents]
+                if !realTimeStreamingEnabled {
+                    body["generationConfig"] = ["response_mime_type": "application/json"]
+                }
                 
                 request.httpBody = try? JSONSerialization.data(withJSONObject: body)
                 
@@ -381,57 +379,72 @@ final class GeminiService {
                         return
                     }
                     
-                    let parser = StreamingResponseParser()
                     var chunkCount = 0
                     var totalContent = ""
-                    
                     print("🌊 Starting to receive Gemini SSE stream...")
-                    
-                    for try await line in bytes.lines {
-                        if Task.isCancelled {
-                            throw CancellationError()
+                    if realTimeStreamingEnabled {
+                        let parser = BlockGrammarStreamParser()
+                        let throttleInterval = 0.1
+                        var pendingContent = ""
+                        var lastFlushAt: TimeInterval = 0
+                        for try await line in bytes.lines {
+                            if Task.isCancelled { throw CancellationError() }
+                            if line.isEmpty { continue }
+                            if line.hasPrefix("data: ") {
+                                let data = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
+                                guard let jsonData = data.data(using: .utf8),
+                                      let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+                                      let candidates = json["candidates"] as? [[String: Any]],
+                                      let firstCandidate = candidates.first,
+                                      let content = firstCandidate["content"] as? [String: Any],
+                                      let parts = content["parts"] as? [[String: Any]],
+                                      let firstPart = parts.first,
+                                      let text = firstPart["text"] as? String else { continue }
+                                if !text.isEmpty {
+                                    pendingContent += text
+                                    let now = Date().timeIntervalSince1970
+                                    if now - lastFlushAt >= throttleInterval {
+                                        lastFlushAt = now
+                                        if !pendingContent.isEmpty {
+                                            if let response = parser.addChunk(pendingContent) {
+                                                continuation.yield(response)
+                                            }
+                                            pendingContent = ""
+                                        }
+                                    }
+                                }
+                            }
                         }
-                        
-                        if line.isEmpty {
-                            continue
+                        if !pendingContent.isEmpty { _ = parser.addChunk(pendingContent) }
+                        if let response = parser.finalize() {
+                            continuation.yield(response)
                         }
-                        
-                        if line.hasPrefix("data: ") {
-                            let data = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
-                            
-                            guard let jsonData = data.data(using: .utf8),
-                                  let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
-                                  let candidates = json["candidates"] as? [[String: Any]],
-                                  let firstCandidate = candidates.first,
-                                  let content = firstCandidate["content"] as? [String: Any],
-                                  let parts = content["parts"] as? [[String: Any]],
-                                  let firstPart = parts.first,
-                                  let text = firstPart["text"] as? String else {
-                                continue
+                    } else {
+                        let parser = StreamingResponseParser()
+                        for try await line in bytes.lines {
+                            if Task.isCancelled { throw CancellationError() }
+                            if line.isEmpty { continue }
+                            if line.hasPrefix("data: ") {
+                                let data = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
+                                guard let jsonData = data.data(using: .utf8),
+                                      let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+                                      let candidates = json["candidates"] as? [[String: Any]],
+                                      let firstCandidate = candidates.first,
+                                      let content = firstCandidate["content"] as? [String: Any],
+                                      let parts = content["parts"] as? [[String: Any]],
+                                      let firstPart = parts.first,
+                                      let text = firstPart["text"] as? String else { continue }
+                                chunkCount += 1
+                                totalContent.append(text)
+                                if let response = parser.addChunk(text) {
+                                    continuation.yield(response)
+                                }
                             }
-                            
-                            chunkCount += 1
-                            totalContent.append(text)
-                            
-                            if chunkCount % 10 == 0 {
-                                print("📦 Chunk #\(chunkCount): +\(text.count) chars (total: \(totalContent.count))")
-                            }
-                            
-                            if let response = parser.addChunk(text) {
-                                continuation.yield(response)
-                            }
+                        }
+                        if let response = parser.finalize() {
+                            continuation.yield(response)
                         }
                     }
-                    
-                    print("🏁 Stream ended")
-                    print("📊 Total chunks received: \(chunkCount)")
-                    print("📊 Total content length: \(totalContent.count) chars")
-                    print("🔍 Attempting to finalize...")
-                    
-                    if let response = parser.finalize() {
-                        continuation.yield(response)
-                    }
-                    
                     print("✅ Stream processing complete")
                     
                     continuation.finish()

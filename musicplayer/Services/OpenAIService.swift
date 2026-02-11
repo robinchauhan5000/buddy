@@ -8,7 +8,7 @@ final class OpenAIService: AIModel {
     private static func model(for category: Category) -> String {
         switch category {
         case .normal: return "gpt-4o"
-        case .shortAnswers: return "gpt-4.2"
+        case .shortAnswers: return "gpt-4.1"
         case .quickAnswers: return "gpt-4o"
         case .trueFalse: return "gpt-4o-mini"
         case .systemDesign: return "gpt-5.2"
@@ -109,9 +109,10 @@ final class OpenAIService: AIModel {
         includeOptionalCodePhase: Bool = false,
         imageData: Data? = nil,
         conversationContext: [[String: Any]] = [],
-        useInterviewCounterQuestion: Bool = false
+        useInterviewCounterQuestion: Bool = false,
+        realTimeStreamingEnabled: Bool = false
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
-        if category == .systemDesign && !useInterviewCounterQuestion {
+        if !realTimeStreamingEnabled && category == .systemDesign && !useInterviewCounterQuestion {
             return streamPhasedSystemDesign(
                 prompt: prompt,
                 language: language,
@@ -125,10 +126,10 @@ final class OpenAIService: AIModel {
         let userPrompt: String
         
         if imageData != nil {
-            systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt, category: category, language: language)
+            systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt, category: category, language: language, realTimeStreamingEnabled: realTimeStreamingEnabled)
             userPrompt = prompt.isEmpty ? "Analyze this image and provide the answer in the specified JSON format." : prompt
         } else {
-            systemPrompt = PromptBuilder.buildSystemPrompt(for: category, language: language, useInterviewCounterQuestion: useInterviewCounterQuestion)
+            systemPrompt = PromptBuilder.buildSystemPrompt(for: category, language: language, useInterviewCounterQuestion: useInterviewCounterQuestion, realTimeStreamingEnabled: realTimeStreamingEnabled)
             userPrompt = prompt
         }
         
@@ -138,7 +139,8 @@ final class OpenAIService: AIModel {
             language: language,
             category: category,
             imageData: imageData,
-            conversationContext: conversationContext
+            conversationContext: conversationContext,
+            realTimeStreamingEnabled: realTimeStreamingEnabled
         )
     }
     
@@ -272,7 +274,8 @@ final class OpenAIService: AIModel {
         language: ProgrammingLanguage,
         category: Category,
         imageData: Data?,
-        conversationContext: [[String: Any]] = []
+        conversationContext: [[String: Any]] = [],
+        realTimeStreamingEnabled: Bool = false
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
         return AsyncThrowingStream { continuation in
             let task = Task {
@@ -291,7 +294,6 @@ final class OpenAIService: AIModel {
                     ["role": "system", "content": systemPrompt]
                 ]
                 
-                // Add conversation context if available
                 if !conversationContext.isEmpty {
                     print("📝 OpenAI: Injecting \(conversationContext.count) conversation context(s)")
                     let contextString = conversationContext.map { context in
@@ -328,12 +330,14 @@ final class OpenAIService: AIModel {
                     messages.append(["role": "user", "content": prompt])
                 }
                 
-                let body: [String: Any] = [
+                var body: [String: Any] = [
                     "model": Self.model(for: category),
                     "stream": true,
-                    "messages": messages,
-                    "response_format": ["type": "json_object"]
+                    "messages": messages
                 ]
+                if !realTimeStreamingEnabled {
+                    body["response_format"] = ["type": "json_object"]
+                }
                 
                 request.httpBody = try? JSONSerialization.data(withJSONObject: body)
                 
@@ -358,71 +362,73 @@ final class OpenAIService: AIModel {
                         return
                     }
                     
-                    let parser = StreamingResponseParser()
                     var chunkCount = 0
                     var totalContent = ""
-                    
-                    print("🌊 Starting to receive SSE stream...")
-                    
                     var lastLineWasDone = false
-                    
-                    for try await line in bytes.lines {
-                        if Task.isCancelled {
-                            throw CancellationError()
-                        }
-                        
-                        if line.isEmpty {
-                            continue
-                        }
-                        
-                        if line.hasPrefix("data: ") {
-                            let data = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
-                            
-                            if data == "[DONE]" {
-                                print("🏁 Received [DONE] signal")
-                                print("📊 Total chunks received: \(chunkCount)")
-                                print("📊 Total content length: \(totalContent.count) chars")
-                                lastLineWasDone = true
-                                if let response = parser.finalize() {
-                                    continuation.yield(response)
+                    print("🌊 Starting to receive SSE stream...")
+                    if realTimeStreamingEnabled {
+                        let parser = BlockGrammarStreamParser()
+                        let throttleInterval = 0.1
+                        var pendingContent = ""
+                        var lastFlushAt: TimeInterval = 0
+                        for try await line in bytes.lines {
+                            if Task.isCancelled { throw CancellationError() }
+                            if line.isEmpty { continue }
+                            if line.hasPrefix("data: ") {
+                                let data = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
+                                if data == "[DONE]" { lastLineWasDone = true; break }
+                                guard let jsonData = data.data(using: .utf8),
+                                      let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+                                      let choices = json["choices"] as? [[String: Any]],
+                                      let firstChoice = choices.first,
+                                      let delta = firstChoice["delta"] as? [String: Any],
+                                      let content = delta["content"] as? String else { continue }
+                                if !content.isEmpty {
+                                    pendingContent += content
+                                    let now = Date().timeIntervalSince1970
+                                    if now - lastFlushAt >= throttleInterval {
+                                        lastFlushAt = now
+                                        if !pendingContent.isEmpty {
+                                            if let response = parser.addChunk(pendingContent) {
+                                                continuation.yield(response)
+                                            }
+                                            pendingContent = ""
+                                        }
+                                    }
                                 }
-                                break
-                            }
-                            
-                            guard let jsonData = data.data(using: .utf8),
-                                  let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
-                                  let choices = json["choices"] as? [[String: Any]],
-                                  let firstChoice = choices.first,
-                                  let delta = firstChoice["delta"] as? [String: Any],
-                                  let content = delta["content"] as? String else {
-                                continue
-                            }
-                            
-                            chunkCount += 1
-                            totalContent.append(content)
-                            
-                            if chunkCount % 50 == 0 {
-                                print("📦 Chunk #\(chunkCount): +\(content.count) chars (total: \(totalContent.count))")
-                            }
-                            
-                            if let response = parser.addChunk(content) {
-                                continuation.yield(response)
                             }
                         }
-                    }
-                    
-                    if !lastLineWasDone {
-                        print("⚠️ Stream ended WITHOUT [DONE] signal!")
-                        print("📊 Total chunks received: \(chunkCount)")
-                        print("📊 Total content length: \(totalContent.count) chars")
-                        print("🔍 Attempting to finalize anyway...")
+                        if !pendingContent.isEmpty { _ = parser.addChunk(pendingContent) }
                         if let response = parser.finalize() {
                             continuation.yield(response)
                         }
+                    } else {
+                        let parser = StreamingResponseParser()
+                        for try await line in bytes.lines {
+                            if Task.isCancelled { throw CancellationError() }
+                            if line.isEmpty { continue }
+                            if line.hasPrefix("data: ") {
+                                let data = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
+                                if data == "[DONE]" {
+                                    lastLineWasDone = true
+                                    if let response = parser.finalize() { continuation.yield(response) }
+                                    break
+                                }
+                                guard let jsonData = data.data(using: .utf8),
+                                      let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+                                      let choices = json["choices"] as? [[String: Any]],
+                                      let firstChoice = choices.first,
+                                      let delta = firstChoice["delta"] as? [String: Any],
+                                      let content = delta["content"] as? String else { continue }
+                                chunkCount += 1
+                                totalContent.append(content)
+                                if let response = parser.addChunk(content) { continuation.yield(response) }
+                            }
+                        }
+                        if !lastLineWasDone, let response = parser.finalize() {
+                            continuation.yield(response)
+                        }
                     }
-                    
-                    print("✅ Stream processing complete")
-                    
                     print("✅ Stream processing complete")
                     
                     continuation.finish()

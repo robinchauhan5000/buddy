@@ -30,6 +30,67 @@ CONTEXT RULES:
   * Information required to continue next question
 """
 
+private static let coreSystemRules2 = """
+ROLE:
+You are a senior fullstack engineer answering technical interview questions.
+
+CRITICAL OUTPUT CONTRACT (NON-NEGOTIABLE):
+You MUST follow the EXACT streaming grammar below.
+Do NOT output JSON.
+Do NOT output markdown.
+Do NOT explain the format.
+Do NOT wrap in backticks.
+Do NOT escape newlines.
+
+The response is a STREAMING BLOCK PROTOCOL.
+
+GRAMMAR:
+
+<<TITLE>>
+Single line title here
+<</TITLE>>
+
+<<SECTION:type=short_answer>>
+Plain text paragraph here.
+Can contain multiple lines.
+Supports normal punctuation.
+<</SECTION>>
+
+<<SECTION:type=details>>
+Text block.
+- Bullet points allowed
+- Natural newlines allowed
+Indentation allowed.
+<</SECTION>>
+
+<<SECTION:type=code language=go>>
+func main() {
+    fmt.Println("Hello")
+}
+<</SECTION>>
+
+<<CONTEXT>>
+conversation_summary:
+One short summary.
+
+ai_technical_context:
+Key assumptions, scale, constraints.
+<</CONTEXT>>
+
+IMPORTANT RULES:
+- Tags must be EXACT.
+- Tags must be UPPERCASE.
+- No JSON anywhere.
+- No markdown anywhere.
+- Code must be raw and unescaped.
+- Indentation must be preserved.
+- Never escape quotes inside code.
+- Never compress whitespace.
+- Never remove leading spaces in code.
+- CONTEXT must appear LAST.
+"""
+
+
     // MARK: - Global JSON Schema (Used Everywhere Except Phased SD)
     private static let defaultJSONSchema = """
 RESPONSE SCHEMA:
@@ -73,17 +134,20 @@ RULES:
     static func buildImageAnalysisPrompt(
         userQuestion: String?,
         category: Category = .coding,
-        language: ProgrammingLanguage = .golang
+        language: ProgrammingLanguage = .golang,
+        realTimeStreamingEnabled: Bool = false
     ) -> String {
         let context = (userQuestion?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
         ? "USER CONTEXT:\n\(userQuestion!)"
         : ""
 
-        // Same prompt as when sending normally for this category (coding, technical, shortAnswers, systemDesign, etc.)
-        let promptForCategory = buildSystemPrompt(for: category, language: language)
-
-        // System design base prompt has no schema; others already include defaultJSONSchema
-        let schemaBlock = category == .systemDesign ? defaultJSONSchema : ""
+        let promptForCategory = buildSystemPrompt(for: category, language: language, realTimeStreamingEnabled: realTimeStreamingEnabled)
+        let schemaBlock: String
+        if realTimeStreamingEnabled {
+            schemaBlock = ""
+        } else {
+            schemaBlock = category == .systemDesign ? "" : defaultJSONSchema
+        }
 
         return """
 \(promptForCategory)
@@ -139,13 +203,21 @@ TONE:
 
 
 
-    // MARK: - Public System Prompt Builder
     static func buildSystemPrompt(
         for category: Category,
         language: ProgrammingLanguage = .golang,
-        useInterviewCounterQuestion: Bool = false
+        useInterviewCounterQuestion: Bool = false,
+        realTimeStreamingEnabled: Bool = false
     ) -> String {
+        if realTimeStreamingEnabled {
+            let base = getBaseRulesStreaming(language: language)
+            let categoryPrompt = getCategoryPrompt(for: category, language: language)
+            return """
+\(base)
 
+\(categoryPrompt)
+"""
+        }
         let base = getBaseRules(language: language)
         let categoryPrompt: String
         let schema: String
@@ -156,7 +228,6 @@ TONE:
             categoryPrompt = getCategoryPrompt(for: category, language: language)
             schema = category == .systemDesign ? "" : defaultJSONSchema
         }
-
         return """
 \(base)
 
@@ -166,10 +237,26 @@ TONE:
 """
     }
 
-    // MARK: - Base Rules
     private static func getBaseRules(language: ProgrammingLanguage) -> String {
         """
 \(coreSystemRules)
+
+EXPERTISE:
+- Distributed systems & microservices
+- Kafka, async processing, retries, idempotency
+- Databases: Postgres, MongoDB, Redis
+- Containers and production operations
+- System design interviews
+
+LANGUAGE:
+- Use \(language.rawValue) for all code
+- Code must be production-ready and idiomatic
+"""
+    }
+
+    private static func getBaseRulesStreaming(language: ProgrammingLanguage) -> String {
+        """
+\(coreSystemRules2)
 
 EXPERTISE:
 - Distributed systems & microservices

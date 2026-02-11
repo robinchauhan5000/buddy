@@ -114,9 +114,10 @@ final class ClaudeAIService: AIModel {
         includeOptionalCodePhase: Bool = false,
         imageData: Data? = nil,
         conversationContext: [[String: Any]] = [],
-        useInterviewCounterQuestion: Bool = false
+        useInterviewCounterQuestion: Bool = false,
+        realTimeStreamingEnabled: Bool = false
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
-        if category == .systemDesign && !useInterviewCounterQuestion {
+        if !realTimeStreamingEnabled && category == .systemDesign && !useInterviewCounterQuestion {
             return streamPhasedSystemDesign(
                 prompt: prompt,
                 language: language,
@@ -130,10 +131,10 @@ final class ClaudeAIService: AIModel {
         let userPrompt: String
 
         if imageData != nil {
-            systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt, category: category, language: language)
+            systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt, category: category, language: language, realTimeStreamingEnabled: realTimeStreamingEnabled)
             userPrompt = prompt.isEmpty ? "Analyze this image and provide the answer in the specified JSON format." : prompt
         } else {
-            systemPrompt = PromptBuilder.buildSystemPrompt(for: category, language: language, useInterviewCounterQuestion: useInterviewCounterQuestion)
+            systemPrompt = PromptBuilder.buildSystemPrompt(for: category, language: language, useInterviewCounterQuestion: useInterviewCounterQuestion, realTimeStreamingEnabled: realTimeStreamingEnabled)
             userPrompt = prompt
         }
 
@@ -141,7 +142,8 @@ final class ClaudeAIService: AIModel {
             systemPrompt: systemPrompt,
             userPrompt: userPrompt,
             imageData: imageData,
-            conversationContext: conversationContext
+            conversationContext: conversationContext,
+            realTimeStreamingEnabled: realTimeStreamingEnabled
         )
     }
 
@@ -151,7 +153,8 @@ final class ClaudeAIService: AIModel {
         systemPrompt: String,
         userPrompt: String,
         imageData: Data?,
-        conversationContext: [[String: Any]]
+        conversationContext: [[String: Any]],
+        realTimeStreamingEnabled: Bool
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
@@ -211,36 +214,67 @@ final class ClaudeAIService: AIModel {
                         return
                     }
 
-                    let parser = StreamingResponseParser()
-
-                    for try await line in bytes.lines {
-                        if Task.isCancelled { throw CancellationError() }
-                        guard line.hasPrefix("data: ") else { continue }
-                        let dataStr = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
-                        guard let data = dataStr.data(using: .utf8),
-                              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                              let type = json["type"] as? String else { continue }
-
-                        if type == "content_block_delta",
-                           let delta = json["delta"] as? [String: Any] {
-                            let text = (delta["text"] as? String) ?? (delta["text_delta"] as? String) ?? ""
-                            if !text.isEmpty {
-                                if let response = parser.addChunk(text) {
+                    if realTimeStreamingEnabled {
+                        let parser = BlockGrammarStreamParser()
+                        let throttleInterval = 0.1
+                        var pendingContent = ""
+                        var lastFlushAt: TimeInterval = 0
+                        for try await line in bytes.lines {
+                            if Task.isCancelled { throw CancellationError() }
+                            guard line.hasPrefix("data: ") else { continue }
+                            let dataStr = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
+                            guard let data = dataStr.data(using: .utf8),
+                                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                                  let type = json["type"] as? String else { continue }
+                            if type == "content_block_delta",
+                               let delta = json["delta"] as? [String: Any] {
+                                let text = (delta["text"] as? String) ?? (delta["text_delta"] as? String) ?? ""
+                                if !text.isEmpty {
+                                    pendingContent += text
+                                    let now = Date().timeIntervalSince1970
+                                    if now - lastFlushAt >= throttleInterval {
+                                        lastFlushAt = now
+                                        if !pendingContent.isEmpty {
+                                            if let response = parser.addChunk(pendingContent) {
+                                                continuation.yield(response)
+                                            }
+                                            pendingContent = ""
+                                        }
+                                    }
+                                }
+                            }
+                            if type == "message_stop" { break }
+                        }
+                        if !pendingContent.isEmpty { _ = parser.addChunk(pendingContent) }
+                        if let response = parser.finalize() {
+                            continuation.yield(response)
+                        }
+                    } else {
+                        let parser = StreamingResponseParser()
+                        for try await line in bytes.lines {
+                            if Task.isCancelled { throw CancellationError() }
+                            guard line.hasPrefix("data: ") else { continue }
+                            let dataStr = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
+                            guard let data = dataStr.data(using: .utf8),
+                                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                                  let type = json["type"] as? String else { continue }
+                            if type == "content_block_delta",
+                               let delta = json["delta"] as? [String: Any] {
+                                let text = (delta["text"] as? String) ?? (delta["text_delta"] as? String) ?? ""
+                                if !text.isEmpty, let response = parser.addChunk(text) {
                                     continuation.yield(response)
                                 }
                             }
-                        }
-
-                        if type == "message_stop" {
-                            if let response = parser.finalize() {
-                                continuation.yield(response)
+                            if type == "message_stop" {
+                                if let response = parser.finalize() {
+                                    continuation.yield(response)
+                                }
+                                break
                             }
-                            break
                         }
-                    }
-
-                    if let response = parser.finalize() {
-                        continuation.yield(response)
+                        if let response = parser.finalize() {
+                            continuation.yield(response)
+                        }
                     }
                     continuation.finish()
                 } catch {
@@ -309,7 +343,8 @@ final class ClaudeAIService: AIModel {
                             systemPrompt: baseSystemPrompt,
                             userPrompt: userPrompt,
                             imageData: phaseImageData,
-                            conversationContext: conversationContext
+                            conversationContext: conversationContext,
+                            realTimeStreamingEnabled: false
                         )
                         for try await phaseResponse in phaseStream {
                             if Task.isCancelled { throw CancellationError() }

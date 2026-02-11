@@ -230,9 +230,8 @@ final class ChatViewModel: ObservableObject {
                 print("○ Continue Conversation DISABLED - No context sent to AI")
             }
             
+            let realTimeStreamingEnabled = AppConfig.realTimeStreamingEnabled
             let stream: AsyncThrowingStream<StreamingResponse, Error>
-            
-            // Select the appropriate service based on provider
             switch selectedProvider {
             case .openAI:
                 stream = openAIService.streamInterviewResponse(
@@ -242,7 +241,8 @@ final class ChatViewModel: ObservableObject {
                     includeOptionalCodePhase: false,
                     imageData: imageData,
                     conversationContext: contextData,
-                    useInterviewCounterQuestion: useInterviewCounterQuestionPrompt
+                    useInterviewCounterQuestion: useInterviewCounterQuestionPrompt,
+                    realTimeStreamingEnabled: realTimeStreamingEnabled
                 )
             case .claude:
                 stream = claudeService.streamInterviewResponse(
@@ -252,7 +252,8 @@ final class ChatViewModel: ObservableObject {
                     includeOptionalCodePhase: false,
                     imageData: imageData,
                     conversationContext: contextData,
-                    useInterviewCounterQuestion: useInterviewCounterQuestionPrompt
+                    useInterviewCounterQuestion: useInterviewCounterQuestionPrompt,
+                    realTimeStreamingEnabled: realTimeStreamingEnabled
                 )
             case .grok:
                 stream = grokService.streamInterviewResponse(
@@ -262,7 +263,8 @@ final class ChatViewModel: ObservableObject {
                     includeOptionalCodePhase: false,
                     imageData: imageData,
                     conversationContext: contextData,
-                    useInterviewCounterQuestion: useInterviewCounterQuestionPrompt
+                    useInterviewCounterQuestion: useInterviewCounterQuestionPrompt,
+                    realTimeStreamingEnabled: realTimeStreamingEnabled
                 )
             case .deepseek:
                 stream = deepseekService.streamInterviewResponse(
@@ -272,7 +274,8 @@ final class ChatViewModel: ObservableObject {
                     includeOptionalCodePhase: false,
                     imageData: imageData,
                     conversationContext: contextData,
-                    useInterviewCounterQuestion: useInterviewCounterQuestionPrompt
+                    useInterviewCounterQuestion: useInterviewCounterQuestionPrompt,
+                    realTimeStreamingEnabled: realTimeStreamingEnabled
                 )
             case .gemini:
                 stream = geminiService.streamInterviewResponse(
@@ -282,7 +285,8 @@ final class ChatViewModel: ObservableObject {
                     includeOptionalCodePhase: false,
                     imageData: imageData,
                     conversationContext: contextData,
-                    useInterviewCounterQuestion: useInterviewCounterQuestionPrompt
+                    useInterviewCounterQuestion: useInterviewCounterQuestionPrompt,
+                    realTimeStreamingEnabled: realTimeStreamingEnabled
                 )
             }
             

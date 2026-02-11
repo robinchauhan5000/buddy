@@ -9,7 +9,21 @@ struct AppConfig {
     private static let grokKeyName = "grok_api_key"
     private static let deepseekKeyName = "deepseek_api_key"
     private static let geminiKeyName = "gemini_api_key"
-    
+    private static let realTimeStreamingKeyName = "real_time_streaming_enabled"
+
+    static var realTimeStreamingEnabled: Bool {
+        get {
+            if defaults.object(forKey: realTimeStreamingKeyName) == nil {
+                return false
+            }
+            return defaults.bool(forKey: realTimeStreamingKeyName)
+        }
+        set {
+            defaults.set(newValue, forKey: realTimeStreamingKeyName)
+            defaults.synchronize()
+        }
+    }
+
     // Get API keys from UserDefaults (UI saved)
     static var openAIAPIKey: String {
         get {

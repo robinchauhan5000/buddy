@@ -135,9 +135,10 @@ final class GrokService {
         includeOptionalCodePhase: Bool = false,
         imageData: Data? = nil,
         conversationContext: [[String: Any]] = [],
-        useInterviewCounterQuestion: Bool = false
+        useInterviewCounterQuestion: Bool = false,
+        realTimeStreamingEnabled: Bool = false
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
-        if category == .systemDesign && !useInterviewCounterQuestion {
+        if !realTimeStreamingEnabled && category == .systemDesign && !useInterviewCounterQuestion {
             return streamPhasedSystemDesign(
                 prompt: prompt,
                 language: language,
@@ -145,18 +146,15 @@ final class GrokService {
                 imageData: imageData
             )
         }
-        
         let systemPrompt: String
         let userPrompt: String
-        
         if imageData != nil {
-            systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt, category: category, language: language)
+            systemPrompt = PromptBuilder.buildImageAnalysisPrompt(userQuestion: prompt.isEmpty ? nil : prompt, category: category, language: language, realTimeStreamingEnabled: false)
             userPrompt = prompt.isEmpty ? "Analyze this image and provide the answer in the specified JSON format." : prompt
         } else {
-            systemPrompt = PromptBuilder.buildSystemPrompt(for: category, language: language, useInterviewCounterQuestion: useInterviewCounterQuestion)
+            systemPrompt = PromptBuilder.buildSystemPrompt(for: category, language: language, useInterviewCounterQuestion: useInterviewCounterQuestion, realTimeStreamingEnabled: false)
             userPrompt = prompt
         }
-        
         return streamGrokResponse(
             systemPrompt: systemPrompt,
             prompt: userPrompt,

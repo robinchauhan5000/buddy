@@ -88,3 +88,180 @@ DEFAULT BEHAVIOR
 - When asked to debug, return the fixed code
 - When asked to refactor, return the refactored code
 - Never explain changes unless explicitly requested
+
+
+
+Implementation:
+# AI Rendering Architecture Rules
+
+## Purpose
+
+We support two AI response pipelines:
+
+1.  Legacy JSON Mode (stable production path)
+2.  Real-Time Streaming Mode (block grammar protocol)
+
+The system must maintain backward compatibility while enabling
+progressive UI rendering.
+
+Feature flag: `realTimeStreamingEnabled: Bool`
+
+------------------------------------------------------------------------
+
+# 1. Global Non-Negotiable Rules
+
+1.  Legacy flow MUST remain 100% untouched.
+2.  Streaming flow MUST NOT reuse legacy parsing logic.
+3.  No cross-contamination between pipelines.
+4.  Feature flag must be evaluated exactly once per request.
+5.  After renderer selection, no further flag branching is allowed.
+6.  Streaming mode must NEVER render raw JSON.
+7.  Streaming mode must NEVER use JSONDecoder for live parsing.
+8.  Legacy mode MUST continue using JSONDecoder.
+9.  Context object must never be rendered in UI (both modes).
+10. Streaming protocol must be treated as a fixed deterministic grammar.
+
+------------------------------------------------------------------------
+
+# 2. Feature Flag Rules
+
+The flag controls: - System prompt selection - Model selection - Parser
+selection - Renderer selection - Streaming vs non-streaming network mode
+
+It must NOT: - Be checked inside UI views - Be checked inside section
+rendering - Be scattered across files
+
+Evaluate once at orchestration level.
+
+------------------------------------------------------------------------
+
+# 3. Prompt Isolation Rules
+
+Maintain two prompts: - coreSystemRules (Legacy JSON contract) -
+coreSystemRules2 (Streaming Block Grammar)
+
+Prompt selection must be isolated in a single provider.
+
+------------------------------------------------------------------------
+
+# 4. Model Selection Rules
+
+Models must be explicitly mapped per mode. Do not reuse models
+implicitly across modes.
+
+------------------------------------------------------------------------
+
+# 5. Streaming Protocol Rules
+
+Streaming grammar:
+
+\<
+```{=html}
+<TITLE>
+```
+> \<
+> ```{=html}
+> </TITLE>
+> ```
+
+\<\<SECTION:type=short_answer\>\> \<
+```{=html}
+</SECTION>
+```
+
+\<\<SECTION:type=details\>\> \<
+```{=html}
+</SECTION>
+```
+
+\<\<SECTION:type=code language=go\>\> \<
+```{=html}
+</SECTION>
+```
+
+\<`<CONTEXT>`{=html}\> \<`</CONTEXT>`{=html}\>
+
+Rules: - Tags must be uppercase. - Tags must be closed properly. - Code
+blocks contain raw unescaped code. - Indentation must be preserved. -
+Newlines must be preserved. - No JSON allowed. - No markdown allowed. -
+No triple backticks. - No escaped newline sequences like `\n`{=tex}. -
+CONTEXT must always appear last.
+
+------------------------------------------------------------------------
+
+# 6. Streaming Parser Rules
+
+Use deterministic state machine.
+
+Allowed states: - idle - readingTitle - readingSectionHeader -
+readingSectionContent - readingContext
+
+Requirements: - Append content immediately while
+readingSectionContent. - Finalize section only when closing tag
+detected. - Parse context silently. - Support graceful fallback. -
+JSONDecoder forbidden during live streaming.
+
+------------------------------------------------------------------------
+
+# 7. Code Rendering Rules
+
+When detecting:
+
+\<\<SECTION:type=code language=xyz\>\>
+
+System must: - Switch UI to code mode immediately. - Use language for
+syntax highlighting. - Preserve whitespace exactly. - Never trim leading
+spaces. - Never normalize indentation. - Never collapse blank lines.
+
+------------------------------------------------------------------------
+
+# 8. Legacy Mode Rules
+
+If streaming flag is false: - Use coreSystemRules - Use JSON schema -
+Use JSONDecoder - Render after full response received
+
+Legacy files must not be modified.
+
+------------------------------------------------------------------------
+
+# 9. Separation of Responsibilities
+
+Prompt Layer → Defines grammar\
+Model Provider → Selects model\
+Renderer → Handles chunks\
+Parser → Interprets grammar\
+UI → Displays sections\
+Storage → Optional transformation for persistence
+
+No layer may overlap responsibility.
+
+------------------------------------------------------------------------
+
+# 10. Fallback Safety Rule
+
+If invalid grammar detected: - Abort streaming renderer - Log error -
+Retry using legacy pipeline
+
+Streaming must never crash UI.
+
+------------------------------------------------------------------------
+
+# 11. Telemetry Requirements
+
+Log: - Grammar violations - Unclosed blocks - Tag mismatches -
+Unexpected EOF - Parser state transitions (debug mode)
+
+------------------------------------------------------------------------
+
+# 12. Folder Structure
+
+AI/ ├── Legacy/ │ ├── LegacyRenderer.swift │ ├── LegacyModels.swift │
+└── LegacyDecoder.swift │ ├── Streaming/ │ ├── StreamingRenderer.swift │
+├── StreamingParser.swift │ ├── StreamModels.swift │ └──
+GrammarSpec.swift │ ├── PromptProvider.swift ├── ModelProvider.swift └──
+AIRenderingOrchestrator.swift
+
+------------------------------------------------------------------------
+
+END OF FILE
+
