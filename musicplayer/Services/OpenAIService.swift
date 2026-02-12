@@ -7,13 +7,13 @@ final class OpenAIService: AIModel {
     /// Model per category (OpenAI): Normal/System Design/Technical/Coding use full models; Short/Quick/TrueFalse use fast.
     private static func model(for category: Category) -> String {
         switch category {
-        case .normal: return "gpt-4o"
-        case .shortAnswers: return "gpt-4.1"
-        case .quickAnswers: return "gpt-4o"
-        case .trueFalse: return "gpt-4o-mini"
+        case .normal: return "gpt-5-nano"
+        case .shortAnswers: return "gpt-5-mini"
+        case .quickAnswers: return "gpt-5-nano"
+        case .trueFalse: return "gpt-5-nano"
         case .systemDesign: return "gpt-5.2"
-        case .scenarioBasedSystemDesign: return "gpt-5.2"
-        case .technical: return "gpt-5.2"
+        case .scenarioBasedSystemDesign: return "gpt-5-mini"
+        case .technical: return "gpt-5-mini"
         case .coding: return "gpt-5.2"
         }
     }
@@ -157,7 +157,7 @@ final class OpenAIService: AIModel {
                 var phaseSections: [Int: [MessageSection]] = [:]
                 var title = ""
                 let baseSystemPrompt = PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language)
-                let lastPhase = 16
+                let lastPhase = 8
                 let questionForPhases = prompt.isEmpty ? "System design question from image" : prompt
                 
                 do {

@@ -13,6 +13,7 @@ enum SectionType: String, Codable {
     case highLevelFunctionalFlow = "high_level_functional_flow"
     case systemBoundariesAndAssumptions = "system_boundaries_and_assumptions"
     case servicesWeWillCreate = "services_we_will_create"
+    case listOfServicesWeWillCreate = "list_of_services_we_will_create"
     case detailedServiceFlow = "detailed_service_flow"
     case dataModelAndStorageDesign = "data_model_and_storage_design"
     case dataFlowBetweenServices = "data_flow_between_services"
@@ -47,6 +48,8 @@ enum SectionType: String, Codable {
             return "System Boundaries & Assumptions"
         case .servicesWeWillCreate:
             return "Services We Will Create"
+        case .listOfServicesWeWillCreate:
+            return "List of Services We Will Create"
         case .detailedServiceFlow:
             return "Detailed Service Flow"
         case .dataModelAndStorageDesign:

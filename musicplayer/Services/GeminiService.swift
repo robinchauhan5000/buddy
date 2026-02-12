@@ -11,7 +11,26 @@ final class GeminiService {
     private let httpClient: HTTPClient
     private let apiKey: String
     
-    private static let model = "gemini-2.0-flash-exp"
+    private static func model(for category: Category) -> String {
+        switch category {
+        case .normal:
+            return "gemini-2.5-flash"
+        case .shortAnswers:
+            return "gemini-2.5-flash-lite"
+        case .quickAnswers:
+            return "gemini-2.5-flash-lite"
+        case .trueFalse:
+            return "gemini-2.5-flash-lite"
+        case .systemDesign:
+            return "gemini-3-pro"
+        case .scenarioBasedSystemDesign:
+            return "gemini-2.5-pro"
+        case .technical:
+            return "gemini-2.5-pro"
+        case .coding:
+            return "gemini-3-pro"
+        }
+    }
     
     init(apiKey: String) {
         self.apiKey = apiKey
@@ -94,15 +113,16 @@ final class GeminiService {
         ]
         
         // Debug logging
+        let modelName = Self.model(for: category)
         print("🔵 Gemini API Request:")
-        print("  Endpoint: /models/\(Self.model):generateContent")
+        print("  Endpoint: /models/\(modelName):generateContent")
         print("  Has image: \(imageData != nil)")
         if let jsonData = try? JSONSerialization.data(withJSONObject: body, options: .prettyPrinted),
            let jsonString = String(data: jsonData, encoding: .utf8) {
             print("  Body preview: \(String(jsonString.prefix(500)))...")
         }
         
-        let endpoint = "/models/\(Self.model):generateContent?key=\(apiKey)"
+        let endpoint = "/models/\(modelName):generateContent?key=\(apiKey)"
         let (data, httpResponse) = try await httpClient.postRaw(endpoint, body: body)
         
         guard (200...299).contains(httpResponse.statusCode) else {
@@ -166,6 +186,7 @@ final class GeminiService {
         return streamGeminiResponse(
             systemPrompt: systemPrompt,
             prompt: userPrompt,
+            category: category,
             language: language,
             imageData: imageData,
             conversationContext: conversationContext,
@@ -186,7 +207,7 @@ final class GeminiService {
                 var phaseSections: [Int: [MessageSection]] = [:]
                 var title = ""
                 let baseSystemPrompt = PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language)
-                let lastPhase = 16
+                let lastPhase = 8
                 let questionForPhases = prompt.isEmpty ? "System design question from image" : prompt
                 
                 do {
@@ -222,6 +243,7 @@ final class GeminiService {
                         let phaseStream = streamGeminiResponse(
                             systemPrompt: baseSystemPrompt,
                             prompt: userPrompt,
+                            category: .systemDesign,
                             language: language,
                             imageData: phaseImageData,
                             conversationContext: conversationContext
@@ -289,6 +311,7 @@ final class GeminiService {
     private func streamGeminiResponse(
         systemPrompt: String,
         prompt: String,
+        category: Category,
         language: ProgrammingLanguage,
         imageData: Data?,
         conversationContext: [[String: Any]] = [],
@@ -296,7 +319,8 @@ final class GeminiService {
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
         return AsyncThrowingStream { continuation in
             let task = Task {
-                guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(Self.model):streamGenerateContent?key=\(apiKey)&alt=sse") else {
+                let modelName = Self.model(for: category)
+                guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(modelName):streamGenerateContent?key=\(apiKey)&alt=sse") else {
                     continuation.finish(throwing: AIModelError("Invalid URL", provider: "Gemini"))
                     return
                 }

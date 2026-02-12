@@ -188,7 +188,7 @@ final class GrokService {
                 var phaseSections: [Int: [MessageSection]] = [:]
                 var title = ""
                 let baseSystemPrompt = PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language)
-                let lastPhase = 16
+                let lastPhase = 8
                 let questionForPhases = prompt.isEmpty ? "System design question from image" : prompt
                 
                 do {

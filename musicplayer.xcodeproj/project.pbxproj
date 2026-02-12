@@ -266,6 +266,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Music Player";
+				INFOPLIST_KEY_CFBundleName = "Music Player";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "This app needs access to your microphone to convert speech to text for interview questions.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "This app needs access to speech recognition to convert your spoken questions into text.";
@@ -300,6 +301,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Music Player";
+				INFOPLIST_KEY_CFBundleName = "Music Player";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "This app needs access to your microphone to convert speech to text for interview questions.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "This app needs access to speech recognition to convert your spoken questions into text.";

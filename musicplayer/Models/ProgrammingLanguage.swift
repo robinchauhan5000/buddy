@@ -6,6 +6,7 @@ enum ProgrammingLanguage: String, CaseIterable, Identifiable {
     case typescript = "TypeScript"
     case react = "React + TypeScript"
     case java = "Java"
+    case sql = "SQL"
     case csharp = "C#"
     case dotnet = "Dotnet"
     
@@ -21,6 +22,8 @@ enum ProgrammingLanguage: String, CaseIterable, Identifiable {
             return "typescript"
         case .java:
             return "java"
+        case .sql:
+            return "sql"
         case .csharp:
             return "csharp"
         case .react:
