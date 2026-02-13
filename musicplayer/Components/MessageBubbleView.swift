@@ -205,12 +205,31 @@ struct MessageBubbleView: View {
     }
     
     private func mermaidBlockView(mermaidCode: String) -> some View {
-        MermaidDiagramBlockView(mermaidCode: mermaidCode)
+        let cleaned = Self.stripMermaidSectionTagsFromDisplay(mermaidCode)
+        return MermaidDiagramBlockView(mermaidCode: cleaned)
             .cornerRadius(DesignSystem.CornerRadius.md)
             .overlay(
                 RoundedRectangle(cornerRadius: DesignSystem.CornerRadius.md)
                     .stroke(DesignSystem.Colors.border, lineWidth: 1)
             )
+    }
+
+    /// Removes section grammar tags from mermaid code so they are never rendered (handles any source: stream, JSON, or echoed tags).
+    private static func stripMermaidSectionTagsFromDisplay(_ text: String) -> String {
+        var result = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let openTags = ["<<SECTION:type=mermaid_diagram>>", "</SECTION:type=mermaid_diagram>>"]
+        for tag in openTags {
+            while result.count >= tag.count, result.prefix(tag.count).lowercased() == tag.lowercased() {
+                result = String(result.dropFirst(tag.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+        let closeTags = ["<<END_SECTION>>", "</END_SECTION>>", "<</SECTION>>", "</SECTION>>"]
+        for tag in closeTags {
+            while result.count >= tag.count, result.suffix(tag.count).lowercased() == tag.lowercased() {
+                result = String(result.dropLast(tag.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+        return result
     }
     
     /// Only treat as Mermaid when explicitly tagged or content starts with a Mermaid diagram declaration.

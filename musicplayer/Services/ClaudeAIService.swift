@@ -319,7 +319,7 @@ final class ClaudeAIService: AIModel {
         imageData: Data? = nil
     ) -> AsyncThrowingStream<StreamingResponse, Error> {
         let baseSystemPrompt = PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language)
-        let lastPhase = 8
+        let lastPhase = 7
         let questionForPhases = prompt.isEmpty ? "System design question from image" : prompt
         return AsyncThrowingStream { continuation in
             let task = Task {
@@ -328,6 +328,7 @@ final class ClaudeAIService: AIModel {
                 do {
                     for phase in 1...lastPhase {
                         if Task.isCancelled { throw CancellationError() }
+                        let mermaidCode = (phase >= 4) ? PromptBuilder.extractMermaidFromSections(phaseSections[3]) : nil
                         let userPrompt: String
                         let phaseImageData: Data?
                         if phase == 1, let imageData = imageData {
@@ -338,7 +339,7 @@ final class ClaudeAIService: AIModel {
                             }
                             phaseImageData = imageData
                         } else {
-                            userPrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(phase: phase, question: questionForPhases, language: language)
+                            userPrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(phase: phase, question: questionForPhases, language: language, mermaidDiagramCode: mermaidCode)
                             phaseImageData = nil
                         }
                         let phaseStream = streamClaudeResponse(

@@ -7,7 +7,7 @@
 
 import Foundation
 
-final class GeminiService {
+final class GeminiService: AIModel {
     private let httpClient: HTTPClient
     private let apiKey: String
     
@@ -22,37 +22,29 @@ final class GeminiService {
         case .trueFalse:
             return "gemini-2.5-flash-lite"
         case .systemDesign:
-            return "gemini-3-pro"
+            return "gemini-3-pro-preview"
         case .scenarioBasedSystemDesign:
             return "gemini-2.5-pro"
         case .technical:
             return "gemini-2.5-pro"
         case .coding:
-            return "gemini-3-pro"
+            return "gemini-3-pro-preview"
+        case .outputType:
+            return "gemini-2.5-flash"
+        case .mcq:
+            return "gemini-2.5-flash"
         }
     }
     
     init(apiKey: String) {
         self.apiKey = apiKey
-        
-        // Log API key status for debugging
-        if apiKey.isEmpty {
-            print("⚠️ WARNING: Gemini API key is empty!")
-            print("   Please add your Gemini key in the app settings")
-        } else {
-            print("✓ Gemini API key loaded")
-            print("  Length: \(apiKey.count) characters")
-            print("  Prefix: \(String(apiKey.prefix(10)))...")
-        }
-        
         self.httpClient = HTTPClient(
             baseURL: "https://generativelanguage.googleapis.com/v1beta",
             defaultHeaders: [
                 "Content-Type": "application/json"
-            ]
+            ],
+            timeout: 180
         )
-        
-        print("  Base URL: https://generativelanguage.googleapis.com/v1beta")
     }
     
     func getInterviewResponse(
@@ -112,30 +104,19 @@ final class GeminiService {
             ]
         ]
         
-        // Debug logging
         let modelName = Self.model(for: category)
-        print("🔵 Gemini API Request:")
-        print("  Endpoint: /models/\(modelName):generateContent")
-        print("  Has image: \(imageData != nil)")
-        if let jsonData = try? JSONSerialization.data(withJSONObject: body, options: .prettyPrinted),
-           let jsonString = String(data: jsonData, encoding: .utf8) {
-            print("  Body preview: \(String(jsonString.prefix(500)))...")
-        }
-        
         let endpoint = "/models/\(modelName):generateContent?key=\(apiKey)"
         let (data, httpResponse) = try await httpClient.postRaw(endpoint, body: body)
         
         guard (200...299).contains(httpResponse.statusCode) else {
-            // Log the error response for debugging
-            if let errorString = String(data: data, encoding: .utf8) {
-                print("Gemini API Error (\(httpResponse.statusCode)): \(errorString)")
+            if let errorString = String(data: data, encoding: .utf8),
+               let errorDetail = parseGeminiErrorMessage(from: errorString) {
+                throw AIModelError("API request failed: \(errorDetail)", provider: "Gemini")
             }
-            throw HTTPError.statusCode(httpResponse.statusCode)
-        }
-        
-        // Log the response for debugging
-        if let responseString = String(data: data, encoding: .utf8) {
-            print("Gemini API Response preview: \(String(responseString.prefix(500)))...")
+            throw AIModelError(
+                "API request failed with status \(httpResponse.statusCode)",
+                provider: "Gemini"
+            )
         }
         
         let geminiResponse = try JSONDecoder().decode(GeminiResponse.self, from: data)
@@ -207,7 +188,7 @@ final class GeminiService {
                 var phaseSections: [Int: [MessageSection]] = [:]
                 var title = ""
                 let baseSystemPrompt = PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language)
-                let lastPhase = 8
+                let lastPhase = 7
                 let questionForPhases = prompt.isEmpty ? "System design question from image" : prompt
                 
                 do {
@@ -218,6 +199,7 @@ final class GeminiService {
                         
                         print("\n🔵 ========== PHASE \(phase)/\(lastPhase) START ==========")
                         
+                        let mermaidCode = (phase >= 4) ? PromptBuilder.extractMermaidFromSections(phaseSections[3]) : nil
                         let userPrompt: String
                         let phaseImageData: Data?
                         if phase == 1, let imageData = imageData {
@@ -231,7 +213,8 @@ final class GeminiService {
                             userPrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
                                 phase: phase,
                                 question: questionForPhases,
-                                language: language
+                                language: language,
+                                mermaidDiagramCode: mermaidCode
                             )
                             phaseImageData = nil
                         }
@@ -239,6 +222,11 @@ final class GeminiService {
                         print("📝 System Prompt Length: \(baseSystemPrompt.count) characters")
                         print("📝 User Prompt Length: \(userPrompt.count) characters")
                         print("📝 Total Prompt Size: ~\((baseSystemPrompt.count + userPrompt.count) / 1024) KB")
+                        print("\n--- SYSTEM PROMPT ---")
+                        print(baseSystemPrompt)
+                        print("\n--- USER PROMPT ---")
+                        print(userPrompt)
+                        print("--- END PROMPTS ---\n")
                         
                         let phaseStream = streamGeminiResponse(
                             systemPrompt: baseSystemPrompt,
@@ -328,6 +316,7 @@ final class GeminiService {
                 var request = URLRequest(url: url)
                 request.httpMethod = "POST"
                 request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                 
                 var contents: [[String: Any]] = []
                 
@@ -337,18 +326,20 @@ final class GeminiService {
                     "parts": [["text": systemPrompt]]
                 ])
                 
-                // Add conversation context if available
+                // Add conversation context if available (single block like OpenAI)
                 if !conversationContext.isEmpty {
                     print("📝 Gemini: Injecting \(conversationContext.count) conversation context(s)")
-                    for context in conversationContext {
+                    let contextString = conversationContext.map { context in
                         if let jsonData = try? JSONSerialization.data(withJSONObject: context),
                            let jsonString = String(data: jsonData, encoding: .utf8) {
-                            contents.append([
-                                "role": "user",
-                                "parts": [["text": "Previous context: \(jsonString)"]]
-                            ])
+                            return jsonString
                         }
-                    }
+                        return ""
+                    }.joined(separator: "\n")
+                    contents.append([
+                        "role": "user",
+                        "parts": [["text": "Previous conversation context:\n\(contextString)"]]
+                    ])
                 } else {
                     print("📝 Gemini: No conversation context - sending fresh request")
                 }
@@ -475,8 +466,13 @@ final class GeminiService {
                     
                     continuation.finish()
                 } catch {
-                    print("❌ ERROR in streamGeminiResponse: \(error)")
-                    continuation.finish(throwing: error)
+                    let nsError = error as NSError
+                    if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled {
+                        continuation.finish(throwing: CancellationError())
+                    } else {
+                        print("❌ ERROR in streamGeminiResponse: \(error)")
+                        continuation.finish(throwing: error)
+                    }
                 }
             }
             

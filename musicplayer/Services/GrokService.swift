@@ -188,7 +188,7 @@ final class GrokService {
                 var phaseSections: [Int: [MessageSection]] = [:]
                 var title = ""
                 let baseSystemPrompt = PromptBuilder.buildSystemPrompt(for: .systemDesign, language: language)
-                let lastPhase = 8
+                let lastPhase = 7
                 let questionForPhases = prompt.isEmpty ? "System design question from image" : prompt
                 
                 do {
@@ -199,6 +199,7 @@ final class GrokService {
                         
                         print("\n🔵 ========== PHASE \(phase)/\(lastPhase) START ==========")
                         
+                        let mermaidCode = (phase >= 4) ? PromptBuilder.extractMermaidFromSections(phaseSections[3]) : nil
                         let userPrompt: String
                         let phaseImageData: Data?
                         if phase == 1, let imageData = imageData {
@@ -212,7 +213,8 @@ final class GrokService {
                             userPrompt = PromptBuilder.buildSystemDesignPhaseUserPrompt(
                                 phase: phase,
                                 question: questionForPhases,
-                                language: language
+                                language: language,
+                                mermaidDiagramCode: mermaidCode
                             )
                             phaseImageData = nil
                         }

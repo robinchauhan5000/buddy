@@ -16,6 +16,8 @@ enum Category: String, CaseIterable, Identifiable {
     case scenarioBasedSystemDesign = "Scenario-Based System Design interview"
     case technical = "Technical Discussion interview"
     case coding = "Coding Round interview"
+    case outputType = "Output Type interview"
+    case mcq = "MCQ interview"
     
     var id: String { rawValue }
 }

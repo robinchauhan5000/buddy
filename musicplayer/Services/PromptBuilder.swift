@@ -3,8 +3,8 @@ import Foundation
 struct PromptBuilder {
 
     // MARK: - Constants
-    static let systemDesignMaxPhase = 8
-    static let systemDesignOptionalCodePhase = 8
+    static let systemDesignMaxPhase = 7
+    static let systemDesignOptionalCodePhase = 7
 
     // MARK: - Core System Rules (Single Source of Truth)
     private static let coreSystemRules = """
@@ -306,6 +306,10 @@ LANGUAGE:
             return getSystemDesignPrompt()
         case .scenarioBasedSystemDesign:
             return getScenarioSystemDesignPrompt()
+        case .outputType:
+            return getOutputTypePrompt(language: language)
+        case .mcq:
+            return getMCQPrompt()
         }
     }
 
@@ -336,6 +340,44 @@ RULES:
 - No pseudocode
 - No TODOs
 - Handle edge cases
+"""
+    }
+
+    private static func getOutputTypePrompt(language: ProgrammingLanguage) -> String {
+        """
+CATEGORY: Output Type Interview
+
+SCENARIO:
+The user will send an image (e.g. screenshot of code) or paste/share code. Answer: (1) What is the output? (2) Explain why that output occurs.
+
+STRUCTURE:
+- short_answer: State the exact output (or outputs, if multiple). Be precise (e.g. "42", "Hello World", "undefined", or the exact printed/returned value).
+- details: Explain step-by-step why the code produces that output. Cover execution order, variable values, language semantics (e.g. hoisting, closure, type coercion), and any edge cases.
+- code: Only if you need to show a corrected version or a small illustrative snippet; otherwise omit.
+
+RULES:
+- Predict the actual runtime output, not "it would print something".
+- Justify every part of the output with reasoning (e.g. "x is 3 because...").
+- Mention the language/runtime if it affects the result.
+"""
+    }
+
+    private static func getMCQPrompt() -> String {
+        """
+CATEGORY: MCQ (Multiple Choice Question) Interview
+
+SCENARIO:
+A question is asked with 2, 3, or 4 options. You must: (1) Identify the correct answer, (2) Explain why this option is correct.
+
+STRUCTURE:
+- short_answer: State the correct option clearly (e.g. "Option B" or quote the correct choice). One clear sentence.
+- details: Explain why this answer is correct. Use bullets; mention why other options are wrong if it helps. Reference concepts, definitions, or behavior that justify the choice.
+- code: Only if a small code snippet or example is needed to illustrate why the answer is correct; omit otherwise.
+
+RULES:
+- Pick exactly one correct answer from the given options.
+- Justify with technical reasoning, not just "because it's correct".
+- If the question is ambiguous, state your assumption and then answer.
 """
     }
 
@@ -457,6 +499,20 @@ STREAMING SECTIONS FOR THIS CATEGORY (Scenario-Based System Design – follow ex
 - Output <<SECTION:type=details>> for requirements, components, trade-offs (main content). Use bullets; one idea per bullet.
 - Output <<SECTION:type=code>> only if you are showing a concrete snippet (e.g. config, interface); omit otherwise.
 """
+        case .outputType:
+            return """
+STREAMING SECTIONS FOR THIS CATEGORY (Output Type – follow exactly):
+- Output <<SECTION:type=short_answer>> with the exact predicted output (required). Be precise (e.g. "42", "Hello", "undefined").
+- Output <<SECTION:type=details>> with step-by-step reasoning for why the code produces that output (required). Use bullets; explain execution order and language semantics.
+- Output <<SECTION:type=code>> only if showing a corrected or illustrative snippet; omit otherwise.
+"""
+        case .mcq:
+            return """
+STREAMING SECTIONS FOR THIS CATEGORY (MCQ – follow exactly):
+- Output <<SECTION:type=short_answer>> with the correct answer (required). State the option clearly (e.g. "Option B" or the correct choice text).
+- Output <<SECTION:type=details>> with explanation of why this answer is correct (required). Use bullets; optionally mention why others are wrong.
+- Output <<SECTION:type=code>> only if a small example is needed to illustrate; omit otherwise.
+"""
         }
     }
 
@@ -507,8 +563,7 @@ REQUIRED SECTIONS (ORDERED):
 4. list_of_services_we_will_create
 5. high_level_functional_flow
 6. detailed_service_flow
-7. data_flow_between_services
-8. scalability_strategy
+7. scalability_strategy
 
 IMPORTANT:
 - Context must summarize decisions made in this answer
@@ -537,15 +592,28 @@ IMPORTANT:
     static func buildSystemDesignPhaseUserPrompt(
         phase: Int,
         question: String,
-        language: ProgrammingLanguage
+        language: ProgrammingLanguage,
+        mermaidDiagramCode: String? = nil
     ) -> String {
 
         let schema = getSystemDesignPhaseSchema(phase)
         let rules = getSystemDesignPhaseRules(phase)
+        let mermaidBlock: String
+        if phase >= 4, let code = mermaidDiagramCode?.trimmingCharacters(in: .whitespacesAndNewlines), !code.isEmpty {
+            mermaidBlock = """
+REFERENCE — MERMAID FLOWCHART FROM PHASE 3 (use this to know which services and flows were designed; your answer must be consistent with this):
+```
+\(code)
+```
+
+"""
+        } else {
+            mermaidBlock = ""
+        }
 
         return """
 Question: \(question)
-
+\(mermaidBlock)
 Return VALID JSON only.
 
 RESPONSE SCHEMA:
@@ -571,7 +639,17 @@ IMPORTANT:
 """
     }
 
-    // MARK: - Phase Schema (phase number → section type; order 1–8)
+    /// Extracts mermaid diagram source from phase 3 sections (for passing into phases 4–7).
+    static func extractMermaidFromSections(_ sections: [MessageSection]?) -> String? {
+        guard let sections = sections else { return nil }
+        guard let mermaid = sections.first(where: { $0.type == .mermaidDiagram }) else { return nil }
+        switch mermaid.content {
+        case .text(let s): return s.isEmpty ? nil : s
+        case .list(let items): let j = items.joined(separator: "\n"); return j.isEmpty ? nil : j
+        }
+    }
+
+    // MARK: - Phase Schema (phase number → section type; order 1–7)
     private static func getSystemDesignPhaseSchema(_ phase: Int) -> String {
         let types: [Int: String] = [
             1: "problem_restatement",
@@ -580,14 +658,13 @@ IMPORTANT:
             4: "list_of_services_we_will_create",
             5: "high_level_functional_flow",
             6: "detailed_service_flow",
-            7: "data_flow_between_services",
-            8: "scalability_strategy"
+            7: "scalability_strategy"
         ]
         let type = types[phase] ?? "problem_restatement"
         return #"    { "type": "\#(type)", "content": ["string"] }"#
     }
 
-    // MARK: - Phase Rules — Order 1–8 matches schema
+    // MARK: - Phase Rules — Order 1–7 matches schema
     private static func getSystemDesignPhaseRules(_ phase: Int) -> String {
         switch phase {
         case 1:
@@ -595,29 +672,73 @@ IMPORTANT:
 PHASE 1 — PROBLEM RESTATEMENT
 - Explain the problem in simple, non-technical terms
 - Describe what is being built and why
+- Separate into:
+  1. Core requirements (must-have)
+  2. Optional requirements (nice-to-have)
 """
         case 2:
             return """
 PHASE 2 — FUNCTIONAL REQUIREMENTS
 - List user-facing requirements
 - Describe what the system must do
+- Separate into:
+  1. Core requirements (must-have)
+  2. Optional requirements (nice-to-have)
 """
         case 3:
             return """
-PHASE 3 — MERMAID DIAGRAM FLOWCHART
+PHASE 3 — MERMAID FLOWCHART
 
-- Create a Mermaid flowchart for the system design based on the problem and requirements above.
-- Output the diagram in a section with type "mermaid_diagram" (content: the Mermaid source only).
+Generate a Mermaid flowchart for the system design described above.
+Must Follow These Rules:
+- Assume a 45–60 minute system design interview.
+- Focus on core functionality first.
+- Design only the minimum viable system as per requirment
+- Mention optional improvements separately, but do NOT include them in the main diagram.
 
-- Use correct Mermaid flowchart syntax so the diagram renders: graph TD or flowchart LR, nodes as [Label] or ID[Label], edges as --> or -->|edge label|. For path or parameter placeholders use angle brackets only, e.g. |GET /<code>| not |GET /{code}|.
-- Do not use parentheses (), angle brackets <> inside the Pipes || — they break Mermaid parsing. If such text is required, wrap the whole label in double quotes, e.g. -->|"read after write (optional)"| or ["label with (parens)"].
-- Write only valid Mermaid that will parse and display without errors.
+
+CRITICAL RULES (follow strictly):
+Provide syntax error free Mermaid code.
+
+1. Use: flowchart TD
+2. Use only:
+   - Nodes as: ID[Label]
+   - Database nodes as: ID[(Label)]
+3. Edges must be:
+   - A --> B
+   - A -->|label| B
+4. Edge labels:
+   - Must NOT contain:
+     - Angle brackets < >
+     - Curly braces { }
+     - Parentheses ( )
+   - If needed, rewrite them safely.
+     Example:
+       Instead of: GET /<code>
+       Use: GET short_code
+5. Node labels:
+   - Do NOT use parentheses ( )
+   - Do NOT use parentheses ( 
+   - Do NOT use parentheses  )
+   - Do NOT use brackets inside labels
+   - Do NOT use special characters except dash (-) or slash (/)
+6. Subgraphs:
+   - Use: subgraph Name
+   - Do NOT use brackets in subgraph titles
+7. Do NOT include explanations.
+8. Output ONLY the Mermaid source.
+9. The diagram must render without syntax errors.
+
+Output inside section:
+<<SECTION:type=mermaid_diagram>>
+<mermaid code only>
+<<END_SECTION>>
+
 """
         case 4:
             return """
 PHASE 4 — LIST OF SERVICES WE WILL CREATE
 - List services
-- Single responsibility per service
 """
         case 5:
             return """
@@ -634,24 +755,7 @@ PHASE 6 — DETAILED SERVICE FLOW
 """
         case 7:
             return """
-PHASE 7 — DATA FLOW BETWEEN SERVICES
-
-STRICT RULES:
-- Bullets only
-- No sentences
-- Use arrows (->) only
-
-FORMAT:
-Flow Name:
-ServiceA -> ServiceB -> ServiceC
-
-Include:
-- Normal flow
-- Failure flow
-"""
-        case 8:
-            return """
-PHASE 8 — SCALABILITY STRATEGY
+PHASE 7 — SCALABILITY STRATEGY
 - Bottlenecks
 - Horizontal and vertical scaling
 """
