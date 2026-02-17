@@ -9,25 +9,39 @@ struct PromptBuilder {
     // MARK: - Core System Rules (Single Source of Truth)
     private static let coreSystemRules = """
 ROLE:
-You are a senior fullstack engineer and this is all about technical interview questions and answers.
+You are a senior fullstack engineer answering technical interview questions.
 
-GLOBAL RULES (NON-NEGOTIABLE):
-1. Output VALID JSON only
-2. Start with { and end with }
-3. No markdown, prose, or extra fields
-4. Follow the provided schema exactly
-5. Be interview-focused and production-oriented
-6. Make reasonable assumptions if data is missing and state them
+OUTPUT MODE:
+Use Streaming Block Protocol only.
+Do not output JSON.
+Do not output markdown.
+Do not write anything outside the required sections.
 
-CONTEXT RULES:
-- Always populate the context object
-- conversation_summary:
-  * Brief summary of discussion so far
-  * No implementation detail
-- current_answer_summary.ai_technical_context:
-  * Key technical assumptions and decisions
-  * Constraints, scale, and architecture choices
-  * Information required to continue next question
+FORMAT RULES:
+
+Use only the sections defined for the selected category.
+Tags must match exactly and be uppercase.
+Do not add extra sections.
+Preserve indentation inside code blocks.
+Code must be raw and unescaped.
+If a CONTEXT section is required, it must appear last.
+
+INTERVIEW EXPECTATIONS:
+Assume production-scale systems unless stated otherwise.
+Clearly state assumptions when needed.
+Focus on scalability, reliability, and real-world trade-offs.
+Give confident, interview-ready answers.
+CONTEXT REQUIREMENTS (when applicable):
+conversation_summary:
+Short summary of the discussion so far.
+No deep implementation detail.
+ai_technical_context:
+Key assumptions.
+Expected scale and constraints.
+Important architecture decisions.
+Trade-offs and risks.
+Information needed for the next question.
+If you cannot follow the format exactly, output nothing.
 """
 
     /// Streaming grammar template – code example uses dynamic language in getBaseRulesStreaming.
@@ -440,37 +454,70 @@ Precise and confident
     // MARK: - Streaming: which sections to output per category (so model follows question type)
     private static func getStreamingSectionRulesForCategory(_ category: Category, language: ProgrammingLanguage) -> String {
         switch category {
-        case .shortAnswers:
-            return """
-STREAMING SECTIONS FOR THIS CATEGORY (Rapid Interview – follow exactly):
-- Output ONLY <<SECTION:type=short_answer>> (required; 1–3 sentences).
-- Output ONLY <<SECTION:type=details>> Single line answer.
-- Output ONLY <<SECTION:type=details>> (required; Highlight important keywords or phrases from the answer).
-- Optionally <<SECTION:type=details>> only if truly needed (≤5 bullets). Omit if the answer fits in short_answer.
-- Output ONLY <<SECTION:type=code>> code in selected language \(language.rawValue).
+        case  .shortAnswers:
+    return """
+STREAMING SECTIONS FOR THIS CATEGORY (Rapid Interview – follow strictly):
+
+1) Output EXACTLY ONE:
+<<SECTION:type=short_answer>>
+- Direct, interview-ready response (3–4 sentences max).
+
+2) Output EXACTLY ONE:
+<<SECTION:type=details>>
+- Explain what you have said above in a interview-ready response.
+
+3) Code:
+<<SECTION:type=code>>
+- Provide code in selected language \(language.rawValue).
+
+Do not output any other sections.
 """
+
         case .quickAnswers:
-            return """
-STREAMING SECTIONS FOR THIS CATEGORY (Quick Answers – follow exactly):
-- Output <<SECTION:type=short_answer>> with the quick answer (required).
-- Output ONLY <<SECTION:type=details>> Single line answer.
-- Output ONLY <<SECTION:type=details>> (required; Highlight important keywords or phrases from the answer).
-- Optionally <<SECTION:type=details>> for a brief expansion. Keep both short.
-- Do NOT output code unless the question explicitly requires it.
+    return """
+STREAMING SECTIONS FOR THIS CATEGORY (Quick Answers – follow strictly):
+
+1) Output EXACTLY ONE:
+<<SECTION:type=short_answer>>
+- Direct, interview-ready response (3–4 sentences max).
+- Crisp, confident answer
+
+2) Output EXACTLY ONE:
+<<SECTION:type=details>>
+- Explain what you have said above in a interview-ready response.
+
+3) Code:
+<<SECTION:type=code>>
+- Provide code in selected language \(language.rawValue).
+
+Do NOT output code unless the question explicitly requires it.
+Do not output any other sections.
 """
+
         case .trueFalse:
-            return """
-STREAMING SECTIONS FOR THIS CATEGORY (True/False – follow exactly):
-- Output <<SECTION:type=short_answer>> with only "True" or "False" (required).
-- Output ONLY <<SECTION:type=details>> (required; Highlight important keywords or phrases from the answer).
-- Output <<SECTION:type=details>> with why the answer is true/false. Do NOT output code unless the question asks for it.
+    return """
+STREAMING SECTIONS FOR THIS CATEGORY (True/False – follow strictly):
+
+1) Output EXACTLY ONE:
+<<SECTION:type=short_answer>>
+- Respond with ONLY: True OR False.
+
+2) Output EXACTLY ONE:
+<<SECTION:type=details>>
+- Direct, interview-ready response (3–4 sentences max).
+- Explain what you have said above in a interview-ready response.
+
+Do NOT output code unless explicitly requested.
+Do not output any other sections.
 """
+
         case .coding:
             return """
 STREAMING SECTIONS FOR THIS CATEGORY (Coding – follow exactly):
 - Output <<SECTION:type=short_answer>> with approach and reasoning (required).
 - Output <<SECTION:type=code language=\(language.codeIdentifier)>> with the complete working solution (required). Use \(language.rawValue).
 - Output <<SECTION:type=details>> with complexity, edge cases, alternatives. Order: short_answer then code then details.
+- Output <<SECTION:type=details>> with explain Code in a interview-ready response.
 """
         case .detailedAnswer:
             return """
@@ -482,15 +529,15 @@ STREAMING SECTIONS FOR THIS CATEGORY (Detailed Answer – follow exactly):
         case .technical:
             return """
 STREAMING SECTIONS FOR THIS CATEGORY (Technical Deep Dive – follow exactly):
-- Output <<SECTION:type=short_answer>> (core concept).
+- Output <<SECTION:type=short_answer>> (core concept) in a interview-ready response.
 - Output <<SECTION:type=details>> for trade-offs and best practices.
-- Output ONLY <<SECTION:type=details>> (required; Highlight important keywords or phrases from the answer).
+- Output ONLY <<SECTION:type=details>> (required; Explain what you have said above in a interview-ready response).
 - Output <<SECTION:type=code>> only for patterns or examples when useful; omit if not needed.
 """
         case .systemDesign:
             return """
 STREAMING SECTIONS FOR THIS CATEGORY (System Design – follow exactly):
-- Output <<SECTION:type=short_answer>> for the high-level approach or problem statement.
+- Output <<SECTION:type=short_answer>> for the high-level approach or problem statement in a interview-ready response.
 - Output <<SECTION:type=details>> for requirements, components, trade-offs (main content). Use bullets; one idea per bullet.
 - Output <<SECTION:type=code>> only if you are showing a concrete snippet (e.g. config, interface); omit otherwise.
 """
@@ -498,22 +545,22 @@ STREAMING SECTIONS FOR THIS CATEGORY (System Design – follow exactly):
             return """
 STREAMING SECTIONS FOR THIS CATEGORY (Scenario-Based System Design – follow exactly):
 - Output <<SECTION:type=short_answer>> for the high-level approach or problem statement.
-- Output ONLY <<SECTION:type=details>> (required; Highlight important keywords or phrases from the answer).
-- Output <<SECTION:type=details>> for requirements, components, trade-offs (main content). Use bullets; one idea per bullet.
+- Output ONLY <<SECTION:type=details>> (required; Explain what you have said above in a interview-ready response).
+- Output <<SECTION:type=details>> for requirements, components, trade-offs (main content) in a interview-ready response. Use bullets; one idea per bullet.
 - Output <<SECTION:type=code>> only if you are showing a concrete snippet (e.g. config, interface); omit otherwise.
 """
         case .outputType:
             return """
 STREAMING SECTIONS FOR THIS CATEGORY (Output Type – follow exactly):
-- Output <<SECTION:type=short_answer>> with the exact predicted output (required). Be precise (e.g. "42", "Hello", "undefined").
-- Output <<SECTION:type=details>> with step-by-step reasoning for why the code produces that output (required). Use bullets; explain execution order and language semantics.
+- Output <<SECTION:type=short_answer>> with the exact predicted output (required) in a interview-ready response. Be precise (e.g. "42", "Hello", "undefined").
+- Output <<SECTION:type=details>> with step-by-step reasoning for why the code produces that output (required) in a interview-ready response. Use bullets; explain execution order and language semantics.
 - Output <<SECTION:type=code>> only if showing a corrected or illustrative snippet; omit otherwise.
 """
         case .mcq:
             return """
 STREAMING SECTIONS FOR THIS CATEGORY (MCQ – follow exactly):
 - Output <<SECTION:type=short_answer>> with the correct answer (required). State the option clearly (e.g. "Option B" or the correct choice text).
-- Output <<SECTION:type=details>> with explanation of why this answer is correct (required). Use bullets; optionally mention why others are wrong.
+- Output <<SECTION:type=details>> with explanation of why this answer is correct (required) in a interview-ready response. Use bullets; optionally mention why others are wrong.
 - Output <<SECTION:type=code>> only if a small example is needed to illustrate; omit otherwise.
 """
         }
@@ -525,6 +572,7 @@ CATEGORY: System Design Interview
 
 RULES:
 - Follow required section order exactly
+- In a interview-ready response.
 - One idea per bullet
 - No nested bullets
 - Explain simply before technical depth
@@ -540,6 +588,7 @@ Design a scalable, fault-tolerant, production-ready system
 CATEGORY: Scenario-Based System Design
 
 ASSUMPTIONS:
+- In a interview-ready response.
 - High traffic
 - Finite resources
 - Real-world failures
@@ -570,6 +619,7 @@ REQUIRED SECTIONS (ORDERED):
 
 IMPORTANT:
 - Context must summarize decisions made in this answer
+- In a interview-ready response.
 """
     }
 
@@ -741,17 +791,20 @@ Output inside section:
         case 4:
             return """
 PHASE 4 — LIST OF SERVICES WE WILL CREATE
+- In a interview-ready response.
 - List services
 """
         case 5:
             return """
 PHASE 5 — HIGH-LEVEL FUNCTIONAL FLOW
+- In a interview-ready response.
 - Step-by-step logical flow
 - Technology-agnostic
 """
         case 6:
             return """
 PHASE 6 — DETAILED SERVICE FLOW
+- In a interview-ready response.
 - Service interactions
 - Error handling
 - Sync vs async
@@ -759,6 +812,7 @@ PHASE 6 — DETAILED SERVICE FLOW
         case 7:
             return """
 PHASE 7 — SCALABILITY STRATEGY
+- In a interview-ready response.
 - Bottlenecks
 - Horizontal and vertical scaling
 """

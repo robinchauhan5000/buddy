@@ -14,7 +14,7 @@ struct AppConfig {
     static var realTimeStreamingEnabled: Bool {
         get {
             if defaults.object(forKey: realTimeStreamingKeyName) == nil {
-                return false
+                return true
             }
             return defaults.bool(forKey: realTimeStreamingKeyName)
         }
