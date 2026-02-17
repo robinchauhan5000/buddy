@@ -21,6 +21,8 @@ struct HeaderView: View {
     let onScreenShare: () -> Void
     let onDelete: () -> Void
     let onProviderChange: (AIProvider) -> Void
+    var isChatGPTWebViewShown: Bool = false
+    let onToggleChatGPTWebView: () -> Void
     var isMicrophoneActive: Bool = false
     var isChromeSoundActive: Bool = false
     var isScreenShareHidden: Bool = true
@@ -55,6 +57,14 @@ struct HeaderView: View {
                 Spacer()
                 
                 HStack(spacing: DesignSystem.Spacing.lg) {
+                    IconButton(
+                        iconName: isChatGPTWebViewShown ? "bubble.left.and.bubble.right" : "globe",
+                        action: onToggleChatGPTWebView,
+                        size: DesignSystem.IconSize.lg,
+                        backgroundColor: DesignSystem.Colors.tertiaryBackground,
+                        foregroundColor: DesignSystem.Colors.textSecondary,
+                        isActive: isChatGPTWebViewShown
+                    )
                     IconButton(
                         iconName: "doc.on.doc",
                         action: onCopy,
@@ -184,6 +194,8 @@ struct HeaderView: View {
         onScreenShare: {},
         onDelete: {},
         onProviderChange: { _ in },
+        isChatGPTWebViewShown: false,
+        onToggleChatGPTWebView: {},
         isMicrophoneActive: true,
         isChromeSoundActive: false,
         isScreenShareHidden: true

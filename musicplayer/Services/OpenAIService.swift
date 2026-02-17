@@ -9,8 +9,8 @@ final class OpenAIService: AIModel {
         switch category {
         case .detailedAnswer: return "gpt-5.1"
         case .shortAnswers: return "gpt-5-mini"
-        case .quickAnswers: return "gpt-5-nano"
-        case .trueFalse: return "gpt-5-nano"
+        case .quickAnswers: return "gpt-5-mini"
+        case .trueFalse: return "gpt-5-mini"
         case .systemDesign: return "gpt-5.2"
         case .scenarioBasedSystemDesign: return "gpt-5-mini"
         case .technical: return "gpt-5-mini"
@@ -79,8 +79,11 @@ final class OpenAIService: AIModel {
             "messages": messages,
             "response_format": ["type": "json_object"]
         ]
-        
+
+        let start = Date()
         let (data, response) = try await httpClient.postRaw("/chat/completions", body: body)
+        let elapsed = Date().timeIntervalSince(start)
+        print("⏱️ OpenAI (non-streaming): total=\(String(format: "%.2f", elapsed))s")
         
         guard response.statusCode == 200 else {
             throw AIModelError(
@@ -346,7 +349,8 @@ final class OpenAIService: AIModel {
                 PromptBuilder.printFinalPromptSent(provider: "OpenAI", systemPrompt: systemPrompt, userPrompt: prompt, conversationContextCount: conversationContext.count, hasImage: imageData != nil)
                 
                 request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-                
+
+                let requestStart = Date()
                 do {
                     let (bytes, response) = try await URLSession.shared.bytes(for: request)
                     
@@ -371,12 +375,14 @@ final class OpenAIService: AIModel {
                     var chunkCount = 0
                     var totalContent = ""
                     var lastLineWasDone = false
+                    var timeToFirstToken: TimeInterval?
                     print("🌊 Starting to receive SSE stream...")
                     if realTimeStreamingEnabled {
                         let parser = BlockGrammarStreamParser()
                         let throttleInterval = 0.1
                         var pendingContent = ""
                         var lastFlushAt: TimeInterval = 0
+                        var rawStreamContent = ""
                         for try await line in bytes.lines {
                             if Task.isCancelled { throw CancellationError() }
                             if line.isEmpty { continue }
@@ -386,10 +392,13 @@ final class OpenAIService: AIModel {
                                 guard let jsonData = data.data(using: .utf8),
                                       let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
                                       let choices = json["choices"] as? [[String: Any]],
-                                      let firstChoice = choices.first,
-                                      let delta = firstChoice["delta"] as? [String: Any],
-                                      let content = delta["content"] as? String else { continue }
+                                      let firstChoice = choices.first else { continue }
+                                let content = extractOpenAIStreamText(from: firstChoice)
                                 if !content.isEmpty {
+                                    if timeToFirstToken == nil { timeToFirstToken = Date().timeIntervalSince(requestStart) }
+                                    chunkCount += 1
+                                    totalContent += content
+                                    rawStreamContent += content
                                     pendingContent += content
                                     let now = Date().timeIntervalSince1970
                                     if now - lastFlushAt >= throttleInterval {
@@ -405,8 +414,19 @@ final class OpenAIService: AIModel {
                             }
                         }
                         if !pendingContent.isEmpty { _ = parser.addChunk(pendingContent) }
+                        print("📨 OpenAI realtime stream text chunks: \(chunkCount), chars: \(totalContent.count)")
+                        if !totalContent.isEmpty {
+                            let preview = String(totalContent.prefix(500))
+                            print("📨 OpenAI realtime raw preview:\n\(preview)\(totalContent.count > 500 ? "\n... [truncated]" : "")")
+                        }
                         if let response = parser.finalize() {
+                            print("✅ OpenAI parser finalized: title=\(response.title.count) chars, sections=\(response.sections.count)")
                             continuation.yield(response)
+                        } else if let fallback = fallbackStreamingResponse(from: rawStreamContent) {
+                            print("⚠️ OpenAI parser returned nil. Using fallback short_answer from raw stream.")
+                            continuation.yield(fallback)
+                        } else {
+                            print("❌ OpenAI parser returned nil and no raw content was captured.")
                         }
                     } else {
                         let parser = StreamingResponseParser()
@@ -426,6 +446,7 @@ final class OpenAIService: AIModel {
                                       let firstChoice = choices.first,
                                       let delta = firstChoice["delta"] as? [String: Any],
                                       let content = delta["content"] as? String else { continue }
+                                if timeToFirstToken == nil { timeToFirstToken = Date().timeIntervalSince(requestStart) }
                                 chunkCount += 1
                                 totalContent.append(content)
                                 if let response = parser.addChunk(content) { continuation.yield(response) }
@@ -435,8 +456,9 @@ final class OpenAIService: AIModel {
                             continuation.yield(response)
                         }
                     }
+                    let totalElapsed = Date().timeIntervalSince(requestStart)
                     print("✅ Stream processing complete")
-                    
+                    print("⏱️ OpenAI timing: total=\(String(format: "%.2f", totalElapsed))s, request_to_first_chunk=\(timeToFirstToken.map { String(format: "%.2f", $0) + "s" } ?? "n/a")")
                     continuation.finish()
                 } catch {
                     let nsError = error as NSError
@@ -492,5 +514,54 @@ final class OpenAIService: AIModel {
         default:
             return nil
         }
+    }
+
+    /// OpenAI delta content may arrive as either a plain string or an array of typed content parts.
+    private func extractOpenAIStreamText(from firstChoice: [String: Any]) -> String {
+        guard let delta = firstChoice["delta"] as? [String: Any] else { return "" }
+        if let content = delta["content"] as? String { return content }
+        if let parts = delta["content"] as? [[String: Any]] {
+            return parts.compactMap { part in
+                if let text = part["text"] as? String { return text }
+                return nil
+            }.joined()
+        }
+        return ""
+    }
+
+    /// Fallback so UI still renders even if strict block parsing fails.
+    private func fallbackStreamingResponse(from raw: String) -> StreamingResponse? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let cleaned = sanitizeProtocolTags(trimmed)
+        let safeText = String(cleaned.prefix(1600))
+        return StreamingResponse(
+            title: "Interview Answer",
+            sections: [
+                MessageSection(type: .shortAnswer, content: .text(safeText), language: nil)
+            ],
+            isComplete: true
+        )
+    }
+
+    private func sanitizeProtocolTags(_ text: String) -> String {
+        var result = text
+        let patterns = [
+            #"<<\/?TITLE>>?"#,
+            #"<<\/?CONTEXT>>?"#,
+            #"<<SECTION:[^>]*>>?"#,
+            #"<</SECTION>>?"#,
+            #"</SECTION>>?"#,
+            #"<<END_SECTION>>?"#,
+            #"</END_SECTION>>?"#
+        ]
+        for pattern in patterns {
+            result = result.replacingOccurrences(
+                of: pattern,
+                with: "",
+                options: [.regularExpression, .caseInsensitive]
+            )
+        }
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

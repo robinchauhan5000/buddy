@@ -16,6 +16,9 @@ struct InterviewCopilotView: View {
     @State private var commandKeyMonitor: Any?
     @State private var isCommandKeyPressed = false
     @State private var isShiftKeyPressed = false
+    @State private var showChatGPTWebView = false
+    
+    private static let chatGPTURL = URL(string: "https://chatgpt.com/")!
     
     var body: some View {
         VStack(spacing: 0) {
@@ -39,14 +42,21 @@ struct InterviewCopilotView: View {
                 onScreenShare: viewModel.shareScreen,
                 onDelete: chatViewModel.clearChat,
                 onProviderChange: { _ in },
+                isChatGPTWebViewShown: showChatGPTWebView,
+                onToggleChatGPTWebView: { showChatGPTWebView.toggle() },
                 isMicrophoneActive: viewModel.isMicrophoneActive,
                 isChromeSoundActive: viewModel.isChromeSoundActive,
                 isScreenShareHidden: viewModel.isScreenShareHidden
             )
             
-            SessionInfoView(
-                chatViewModel: chatViewModel
-            )
+            if showChatGPTWebView {
+                URLWebView(url: Self.chatGPTURL)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                SessionInfoView(
+                    chatViewModel: chatViewModel
+                )
+            }
         }
         .background(
             VisualEffectBlur(material: .hudWindow, blendingMode: .withinWindow)

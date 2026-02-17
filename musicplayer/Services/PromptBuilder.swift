@@ -6,136 +6,6 @@ struct PromptBuilder {
     static let systemDesignMaxPhase = 7
     static let systemDesignOptionalCodePhase = 7
 
-    // MARK: - Core System Rules (Single Source of Truth)
-    private static let coreSystemRules = """
-ROLE:
-You are a senior fullstack engineer answering technical interview questions.
-
-OUTPUT MODE:
-Use Streaming Block Protocol only.
-Do not output JSON.
-Do not output markdown.
-Do not write anything outside the required sections.
-
-FORMAT RULES:
-
-Use only the sections defined for the selected category.
-Tags must match exactly and be uppercase.
-Do not add extra sections.
-Preserve indentation inside code blocks.
-Code must be raw and unescaped.
-If a CONTEXT section is required, it must appear last.
-
-INTERVIEW EXPECTATIONS:
-Assume production-scale systems unless stated otherwise.
-Clearly state assumptions when needed.
-Focus on scalability, reliability, and real-world trade-offs.
-Give confident, interview-ready answers.
-CONTEXT REQUIREMENTS (when applicable):
-conversation_summary:
-Short summary of the discussion so far.
-No deep implementation detail.
-ai_technical_context:
-Key assumptions.
-Expected scale and constraints.
-Important architecture decisions.
-Trade-offs and risks.
-Information needed for the next question.
-If you cannot follow the format exactly, output nothing.
-"""
-
-    /// Streaming grammar template – code example uses dynamic language in getBaseRulesStreaming.
-    private static func coreSystemRules2Streaming(language: ProgrammingLanguage) -> String {
-        let langId = language.codeIdentifier
-        let langName = language.rawValue
-        return """
-ROLE:
-You are a senior fullstack engineer answering technical interview questions.
-
-CRITICAL OUTPUT CONTRACT (NON-NEGOTIABLE):
-You MUST follow the EXACT streaming grammar below.
-Do NOT output JSON.
-Do NOT output markdown.
-Do NOT explain the format.
-Do NOT wrap in backticks.
-Do NOT escape newlines.
-
-The response is a STREAMING BLOCK PROTOCOL.
-
-REQUESTED LANGUAGE FOR CODE: \(langName) (use language=\(langId) in code section tags).
-
-GRAMMAR:
-
-<<TITLE>>
-Single line title here
-<</TITLE>>
-
-<<SECTION:type=short_answer>>
-Plain text paragraph here.
-Can contain multiple lines.
-Supports normal punctuation.
-<</SECTION>>
-
-<<SECTION:type=details>>
-Text block.
-- Bullet points allowed
-- Natural newlines allowed
-Indentation allowed.
-<</SECTION>>
-
-<<SECTION:type=code language=\(langId)>>
-Example code in \(langName) here.
-<</SECTION>>
-
-<<CONTEXT>>
-conversation_summary:
-One short summary.
-
-ai_technical_context:
-Key assumptions, scale, constraints.
-<</CONTEXT>>
-
-IMPORTANT RULES:
-- Tags must be EXACT.
-- Tags must be UPPERCASE.
-- No JSON anywhere.
-- No markdown anywhere.
-- Code must be raw and unescaped.
-- Indentation must be preserved.
-- Never escape quotes inside code.
-- Never compress whitespace.
-- Never remove leading spaces in code.
-- CONTEXT must appear LAST.
-- You will see "STREAMING SECTIONS FOR THIS CATEGORY" below: output ONLY the sections listed for that category; do not add extra section types (e.g. do not add code if the category says omit code).
-"""
-    }
-
-
-    // MARK: - Global JSON Schema (Used Everywhere Except Phased SD)
-    private static let defaultJSONSchema = """
-RESPONSE SCHEMA:
-{
-  "title": "string",
-  "sections": [
-    {
-      "type": "short_answer | details | code",
-      "content": "string (for short_answer and details use a string; for code use a single string with \\n for newlines, NOT an array of lines)",
-      "language": "string (only for code sections, e.g. \"go\", \"python\")"
-    }
-  ],
-  "context": {
-    "conversation_summary": "string",
-    "current_answer_summary": {
-      "ai_technical_context": "string"
-    }
-  }
-}
-
-CONTENT RULES:
-- short_answer, details: content must be a single string.
-- code: content must be a single string containing the full source code; use \\n for line breaks. Do NOT use an array of lines for code.
-"""
-
     /// Image-specific task and rules — append when analyzing an image so the model extracts question/code and answers, instead of describing the screen.
     private static let imageAnalysisTaskAndRules = """
 TASK:
@@ -145,12 +15,12 @@ RULES:
 - If the image shows a meeting/chat UI, look in the chat or message area for the question or code.
 - If the image shows a code editor or snippet, treat that as the question or code to solve/explain.
 - If the user provided question text above, that is the question to answer; use the image only for extra context (e.g. code to fix).
-- Do NOT describe the screen, presentation, session, or UI (e.g. no "Screen Sharing Session", "Presentation Instructions", "infinity mirror warning"). Output only the technical interview answer (short_answer, details, code as per schema).
+- Do NOT describe the screen, presentation, session, or UI (e.g. no "Screen Sharing Session", "Presentation Instructions", "infinity mirror warning"). Output only the technical interview answer in Streaming Block Protocol format.
 """
 
     // MARK: - Image Analysis Prompt
-    /// Builds the same prompt as for the selected category (as when sending text), then appends the image TASK and RULES.
-    /// For system design, use the phased flow from the service with imageData in phase 1; this is used for non–system design or as base for phase 1.
+    /// Builds the same prompt as for the selected category (as when sending text), then appends image TASK and RULES.
+    /// Streaming-only mode: prompt output always follows block grammar sections.
     static func buildImageAnalysisPrompt(
         userQuestion: String?,
         category: Category = .coding,
@@ -162,19 +32,17 @@ RULES:
         ? "USER CONTEXT:\n\(userQuestion!)"
         : ""
 
-        let promptForCategory = buildSystemPrompt(for: category, language: language, useInterviewCounterQuestion: useInterviewCounterQuestion, realTimeStreamingEnabled: realTimeStreamingEnabled)
-        let schemaBlock: String
-        if realTimeStreamingEnabled {
-            schemaBlock = ""
-        } else {
-            schemaBlock = category == .systemDesign ? "" : defaultJSONSchema
-        }
+        let promptForCategory = buildSystemPrompt(
+            for: category,
+            language: language,
+            useInterviewCounterQuestion: useInterviewCounterQuestion,
+            realTimeStreamingEnabled: realTimeStreamingEnabled
+        )
 
         return """
 \(promptForCategory)
 
 \(imageAnalysisTaskAndRules)
-\(schemaBlock.isEmpty ? "" : "\n\(schemaBlock)\n")
 \(context)
 """
     }
@@ -228,376 +96,135 @@ TONE:
         for category: Category,
         language: ProgrammingLanguage = .golang,
         useInterviewCounterQuestion: Bool = false,
-        realTimeStreamingEnabled: Bool = false
+        realTimeStreamingEnabled _: Bool = false
     ) -> String {
-        if realTimeStreamingEnabled {
-            let base = getBaseRulesStreaming(language: language)
-            let categoryPrompt = useInterviewCounterQuestion
-                ? getInterviewCounterQuestionPrompt()
-                : getCategoryPrompt(for: category, language: language)
-            let streamingSectionRules = getStreamingSectionRulesForCategory(category, language: language)
-            return """
-\(base)
-
-\(categoryPrompt)
-
-\(streamingSectionRules)
-"""
-        }
-        let base = getBaseRules(language: language)
-        let categoryPrompt: String
-        let schema: String
-        if useInterviewCounterQuestion {
-            categoryPrompt = getInterviewCounterQuestionPrompt()
-            schema = defaultJSONSchema
-        } else {
-            categoryPrompt = getCategoryPrompt(for: category, language: language)
-            schema = category == .systemDesign ? "" : defaultJSONSchema
-        }
-        return """
-\(base)
-
-\(schema)
-
-\(categoryPrompt)
-"""
+        return getFastStreamingPrompt(
+            for: category,
+            language: language,
+            useInterviewCounterQuestion: useInterviewCounterQuestion
+        )
     }
 
-    private static func getBaseRules(language: ProgrammingLanguage) -> String {
-        """
-\(coreSystemRules)
-
-EXPERTISE:
-- Distributed systems & microservices
-- Kafka, async processing, retries, idempotency
-- Databases: Postgres, MongoDB, Redis
-- Containers and production operations
-- System design interviews
-
-LANGUAGE:
-- Use \(language.rawValue) for all code
-- Code must be production-ready and idiomatic
-"""
-    }
-
-    private static func getBaseRulesStreaming(language: ProgrammingLanguage) -> String {
-        """
-\(coreSystemRules2Streaming(language: language))
-
-EXPERTISE:
-- Distributed systems & microservices
-- Docker, Docker Compose, Kubernetes, Helm, ArgoCD, Ansible, Terraform, etc.
-- Kafka, async processing, retries, idempotency
-- Databases: Postgres, MongoDB, Redis
-- Containers and production operations
-- System design interviews
-
-LANGUAGE:
-- Use \(language.rawValue) for all code
-- Code must be production-ready and idiomatic
-"""
-    }
-
-    // MARK: - Category Prompts
-    private static func getCategoryPrompt(
+    private static func getFastStreamingPrompt(
         for category: Category,
-        language: ProgrammingLanguage
+        language: ProgrammingLanguage,
+        useInterviewCounterQuestion: Bool = false
     ) -> String {
+        let optionalCounterPrompt = useInterviewCounterQuestion ? "\n\(getInterviewCounterQuestionPrompt())\n" : ""
+        let streamingRules = getStreamingSectionRulesForCategory(category, language: language)
+        return """
+ROLE:
+You are a senior fullstack engineer answering technical interview questions.
 
-        switch category {
-        case .detailedAnswer:
-            return getDetailedAnswerPrompt()
-        case .coding:
-            return getCodingPrompt(language: language)
-        case .technical:
-            return getTechnicalPrompt()
-        case .quickAnswers:
-            return getQuickAnswersPrompt()
-        case .shortAnswers:
-            return getShortAnswersPrompt()
-        case .trueFalse:
-            return getTrueFalsePrompt()
-        case .systemDesign:
-            return getSystemDesignPrompt()
-        case .scenarioBasedSystemDesign:
-            return getScenarioSystemDesignPrompt()
-        case .outputType:
-            return getOutputTypePrompt(language: language)
-        case .mcq:
-            return getMCQPrompt()
-        }
-    }
+OUTPUT CONTRACT:
+- Strictly follow the streaming rules. <<SECTION:type=short_answer>> <<>>.
+- Streaming Block Protocol only.
+- No JSON. No markdown.
+- No extra text outside tags.
+- Interview-ready and concise.
 
-    private static func getDetailedAnswerPrompt() -> String {
-        """
-CATEGORY: Detailed Answer
+REQUESTED LANGUAGE FOR CODE: \(language.rawValue) (use language=\(language.codeIdentifier) in code section tags).
 
-STRUCTURE:
-- short_answer: Explain the concept clearly (what it is, why it matters).
-- code: Provide working code in the requested language (required).
-- details: Explain the code (how it works, key lines, and why it solves the problem).
+\(optionalCounterPrompt)
 
-STYLE:
-Concept first, then code, then code explanation. Interview-ready and thorough.
-"""
-    }
-
-    private static func getCodingPrompt(language: ProgrammingLanguage) -> String {
-        """
-CATEGORY: Coding Interview
-
-STRUCTURE:
-- short_answer: Approach and reasoning
-- code: Complete working solution in \(language.rawValue); content must be one string with \\n for newlines (not an array of lines)
-- details: Complexity, edge cases, alternatives
-
-RULES:
-- No pseudocode
-- No TODOs
-- Handle edge cases
-"""
-    }
-
-    private static func getOutputTypePrompt(language: ProgrammingLanguage) -> String {
-        """
-CATEGORY: Output Type Interview
-
-SCENARIO:
-The user will send an image (e.g. screenshot of code) or paste/share code. Answer: (1) What is the output? (2) Explain why that output occurs.
-
-STRUCTURE:
-- short_answer: State the exact output (or outputs, if multiple). Be precise (e.g. "42", "Hello World", "undefined", or the exact printed/returned value).
-- details: Explain step-by-step why the code produces that output. Cover execution order, variable values, language semantics (e.g. hoisting, closure, type coercion), and any edge cases.
-- code: Only if you need to show a corrected version or a small illustrative snippet; otherwise omit.
-
-RULES:
-- Predict the actual runtime output, not "it would print something".
-- Justify every part of the output with reasoning (e.g. "x is 3 because...").
-- Mention the language/runtime if it affects the result.
-"""
-    }
-
-    private static func getMCQPrompt() -> String {
-        """
-CATEGORY: MCQ (Multiple Choice Question) Interview
-
-SCENARIO:
-A question is asked with 2, 3, or 4 options. You must: (1) Identify the correct answer, (2) Explain why this option is correct.
-
-STRUCTURE:
-- short_answer: State the correct option clearly (e.g. "Option B" or quote the correct choice). One clear sentence.
-- details: Explain why this answer is correct. Use bullets; mention why other options are wrong if it helps. Reference concepts, definitions, or behavior that justify the choice.
-- code: Only if a small code snippet or example is needed to illustrate why the answer is correct; omit otherwise.
-
-RULES:
-- Pick exactly one correct answer from the given options.
-- Justify with technical reasoning, not just "because it's correct".
-- If the question is ambiguous, state your assumption and then answer.
-"""
-    }
-
-    private static func getTechnicalPrompt() -> String {
-        """
-CATEGORY: Technical Deep Dive
-
-FOCUS:
-- Explain WHY and HOW
-
-STRUCTURE:
-- short_answer: Core concept
-- details: Trade-offs and best practices
-- code: Patterns or examples when useful
-"""
-    }
-
-   private static func getTrueFalsePrompt() -> String {
-        """
-CATEGORY: True/False Interview Questions
-
-RULES:
-- True/False answer only
-- Why the answer is true/false should be in the details section
-STYLE:
-Precise and confident
-"""
-    }
-
-
-
-   private static func getQuickAnswersPrompt() -> String {
-        """
-CATEGORY: Quick Answers Interview Questions
-
-RULES:
-- Quick answer only
-- Quick answer should be in the short_answer section
-- Quick answer should be in the details section
-STYLE:
-Precise and confident
-"""
-    }
-
-    private static func getShortAnswersPrompt() -> String {
-        """
-CATEGORY: Rapid Interview Questions
-
-RULES:
-- short_answer only (1–3 sentences)
-- details only if unavoidable (≤5 bullets)
-- complete code solution code
-- Code explanation should be in the details section
-STYLE:
-Precise and confident
+\(streamingRules)
 """
     }
 
     // MARK: - Streaming: which sections to output per category (so model follows question type)
     private static func getStreamingSectionRulesForCategory(_ category: Category, language: ProgrammingLanguage) -> String {
         switch category {
-        case  .shortAnswers:
-    return """
-STREAMING SECTIONS FOR THIS CATEGORY (Rapid Interview – follow strictly):
-
-1) Output EXACTLY ONE:
-<<SECTION:type=short_answer>>
-- Direct, interview-ready response (3–4 sentences max).
-
-2) Output EXACTLY ONE:
-<<SECTION:type=details>>
-- Explain what you have said above in a interview-ready response.
-
-3) Code:
-<<SECTION:type=code>>
-- Provide code in selected language \(language.rawValue).
-
-Do not output any other sections.
-"""
-
+        case .shortAnswers:
+            return commonStreamingFormatRules("""
+            CATEGORY RULES (Rapid Interview):
+            - short_answer: in a interview-ready response, max 3 sentences.
+            - details: max 5 bullets with reasoning and trade-offs.
+            - code: must provide complete runnable \(language.rawValue) code solution.
+            """)
         case .quickAnswers:
-    return """
-STREAMING SECTIONS FOR THIS CATEGORY (Quick Answers – follow strictly):
-
-1) Output EXACTLY ONE:
-<<SECTION:type=short_answer>>
-- Direct, interview-ready response (3–4 sentences max).
-- Crisp, confident answer
-
-2) Output EXACTLY ONE:
-<<SECTION:type=details>>
-- Explain what you have said above in a interview-ready response.
-
-3) Code:
-<<SECTION:type=code>>
-- Provide code in selected language \(language.rawValue).
-
-Do NOT output code unless the question explicitly requires it.
-Do not output any other sections.
-"""
-
+            return commonStreamingFormatRules("""
+            CATEGORY RULES (Quick Answers):
+            - short_answer: in a interview-ready response, max 2 lines, direct answer.
+            - details: max 3 bullets, high-signal only.
+            """)
         case .trueFalse:
-    return """
-STREAMING SECTIONS FOR THIS CATEGORY (True/False – follow strictly):
-
-1) Output EXACTLY ONE:
-<<SECTION:type=short_answer>>
-- Respond with ONLY: True OR False.
-
-2) Output EXACTLY ONE:
-<<SECTION:type=details>>
-- Direct, interview-ready response (3–4 sentences max).
-- Explain what you have said above in a interview-ready response.
-
-Do NOT output code unless explicitly requested.
-Do not output any other sections.
-"""
-
+            return commonStreamingFormatRules("""
+            CATEGORY RULES (True/False):
+            - short_answer: in a interview-ready response, ONLY "True" or "False".
+            - details: brief technical justification (max 3 bullets).
+            - code: include only when required by question, else minimal valid placeholder in \(language.rawValue).
+            """)
         case .coding:
-            return """
-STREAMING SECTIONS FOR THIS CATEGORY (Coding – follow exactly):
-- Output <<SECTION:type=short_answer>> with approach and reasoning (required).
-- Output <<SECTION:type=code language=\(language.codeIdentifier)>> with the complete working solution (required). Use \(language.rawValue).
-- Output <<SECTION:type=details>> with complexity, edge cases, alternatives. Order: short_answer then code then details.
-- Output <<SECTION:type=details>> with explain Code in a interview-ready response.
-"""
+            return commonStreamingFormatRules("""
+            CATEGORY RULES (Coding Interview):
+            - short_answer: in a interview-ready response, approach in 2-4 concise lines.
+            - details: complexity, edge cases, and alternatives (max 5 bullets).
+            - code: complete production-ready \(language.rawValue) solution.
+            """)
         case .detailedAnswer:
-            return """
-STREAMING SECTIONS FOR THIS CATEGORY (Detailed Answer – follow exactly):
-- Output <<SECTION:type=short_answer>> (required): Explain the concept clearly—what it is and why it matters.
-- Output <<SECTION:type=code language=\(language.codeIdentifier)>> (required): Provide working code in \(language.rawValue).
-- Output <<SECTION:type=details>> (required): Explain the code—how it works, key lines, and why it solves the problem. Order: short_answer then code then details.
-"""
+            return commonStreamingFormatRules("""
+            CATEGORY RULES (Detailed Answer):
+            - short_answer: in a interview-ready response, concept and why it matters.
+            - details: how solution works, key trade-offs, and pitfalls.
+            - code: complete idiomatic \(language.rawValue) implementation.
+            """)
         case .technical:
-            return """
-STREAMING SECTIONS FOR THIS CATEGORY (Technical Deep Dive – follow exactly):
-- Output <<SECTION:type=short_answer>> (core concept) in a interview-ready response.
-- Output <<SECTION:type=details>> for trade-offs and best practices.
-- Output ONLY <<SECTION:type=details>> (required; Explain what you have said above in a interview-ready response).
-- Output <<SECTION:type=code>> only for patterns or examples when useful; omit if not needed.
-"""
+            return commonStreamingFormatRules("""
+            CATEGORY RULES (Technical Deep Dive):
+            - short_answer: in a interview-ready response, direct core concept.
+            - details: why/how, trade-offs, and best practices.
+            - code: concise pattern/example in \(language.rawValue) when useful.
+            """)
         case .systemDesign:
-            return """
-STREAMING SECTIONS FOR THIS CATEGORY (System Design – follow exactly):
-- Output <<SECTION:type=short_answer>> for the high-level approach or problem statement in a interview-ready response.
-- Output <<SECTION:type=details>> for requirements, components, trade-offs (main content). Use bullets; one idea per bullet.
-- Output <<SECTION:type=code>> only if you are showing a concrete snippet (e.g. config, interface); omit otherwise.
-"""
+            return commonStreamingFormatRules("""
+            CATEGORY RULES (System Design):
+            - short_answer: in a interview-ready response, high-level architecture in 2-4 lines.
+            - details: requirements, components, bottlenecks, and trade-offs.
+            - code: only concrete snippet if essential; otherwise minimal placeholder.
+            """)
         case .scenarioBasedSystemDesign:
-            return """
-STREAMING SECTIONS FOR THIS CATEGORY (Scenario-Based System Design – follow exactly):
-- Output <<SECTION:type=short_answer>> for the high-level approach or problem statement.
-- Output ONLY <<SECTION:type=details>> (required; Explain what you have said above in a interview-ready response).
-- Output <<SECTION:type=details>> for requirements, components, trade-offs (main content) in a interview-ready response. Use bullets; one idea per bullet.
-- Output <<SECTION:type=code>> only if you are showing a concrete snippet (e.g. config, interface); omit otherwise.
-"""
+            return commonStreamingFormatRules("""
+            CATEGORY RULES (Scenario-Based System Design):
+            - short_answer: in a interview-ready response, direct plan for the given scenario.
+            - details: assumptions, key decisions, and operational trade-offs.
+            - code: only if required; otherwise minimal placeholder.
+            """)
         case .outputType:
-            return """
-STREAMING SECTIONS FOR THIS CATEGORY (Output Type – follow exactly):
-- Output <<SECTION:type=short_answer>> with the exact predicted output (required) in a interview-ready response. Be precise (e.g. "42", "Hello", "undefined").
-- Output <<SECTION:type=details>> with step-by-step reasoning for why the code produces that output (required) in a interview-ready response. Use bullets; explain execution order and language semantics.
-- Output <<SECTION:type=code>> only if showing a corrected or illustrative snippet; omit otherwise.
-"""
+            return commonStreamingFormatRules("""
+            CATEGORY RULES (Output Type):
+            - short_answer: exact output value/text.
+            - details: in a interview-ready response, step-by-step execution reasoning.
+            - code: corrected/illustrative snippet only when needed; otherwise minimal placeholder.
+            """)
         case .mcq:
-            return """
-STREAMING SECTIONS FOR THIS CATEGORY (MCQ – follow exactly):
-- Output <<SECTION:type=short_answer>> with the correct answer (required). State the option clearly (e.g. "Option B" or the correct choice text).
-- Output <<SECTION:type=details>> with explanation of why this answer is correct (required) in a interview-ready response. Use bullets; optionally mention why others are wrong.
-- Output <<SECTION:type=code>> only if a small example is needed to illustrate; omit otherwise.
-"""
+            return commonStreamingFormatRules("""
+            CATEGORY RULES (MCQ):
+            - short_answer: in a interview-ready response, clearly state one correct option.
+            - details: concise reasoning and why alternatives fail (if helpful).
+            - code: tiny example only if needed; otherwise minimal placeholder.
+            """)
         }
     }
 
-    private static func getSystemDesignPrompt() -> String {
+    private static func commonStreamingFormatRules(_ categoryRules: String) -> String {
         """
-CATEGORY: System Design Interview
+SECTION ORDER (STRICT):
+1) <<TITLE>> ... <</TITLE>>
+2) <<SECTION:type=short_answer>> ... <</SECTION>>
+3) <<SECTION:type=details>> ... <</SECTION>>
+4) <<SECTION:type=code language=...>> ... <</SECTION>>
+5) <<CONTEXT>> ... <</CONTEXT>>  (MUST be last)
 
-RULES:
-- Follow required section order exactly
-- In a interview-ready response.
-- One idea per bullet
-- No nested bullets
-- Explain simply before technical depth
-- State assumptions explicitly
+\(categoryRules)
 
-GOAL:
-Design a scalable, fault-tolerant, production-ready system
-"""
-    }
+CONTEXT FORMAT (keep short):
+conversation_summary:
+One line.
 
-    private static func getScenarioSystemDesignPrompt() -> String {
-        """
-CATEGORY: Scenario-Based System Design
+ai_technical_context:
+Assumptions, scale, constraints in 1-2 lines.
 
-ASSUMPTIONS:
-- In a interview-ready response.
-- High traffic
-- Finite resources
-- Real-world failures
-
-RULES:
-- Do NOT ask clarifying questions
-- State assumptions first
-- Design for production
-- Focus on scalability and operations
+Do not output any extra sections or prose outside tags.
 """
     }
 

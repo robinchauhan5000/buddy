@@ -35,6 +35,17 @@ final class GeminiService: AIModel {
             return "gemini-2.5-flash"
         }
     }
+
+    /// Category-based output budget to improve speed and keep answers focused.
+    private static func maxOutputTokens(for category: Category) -> Int {
+        switch category {
+        case .quickAnswers, .shortAnswers, .trueFalse: return 320
+        case .mcq, .outputType, .technical: return 600
+        case .coding, .detailedAnswer: return 1400
+        case .scenarioBasedSystemDesign: return 1800
+        case .systemDesign: return 2600
+        }
+    }
     
     init(apiKey: String) {
         self.apiKey = apiKey
@@ -100,7 +111,8 @@ final class GeminiService: AIModel {
         let body: [String: Any] = [
             "contents": contents,
             "generationConfig": [
-                "response_mime_type": "application/json"
+                "response_mime_type": "application/json",
+                "maxOutputTokens": Self.maxOutputTokens(for: category)
             ]
         ]
         
@@ -368,7 +380,14 @@ final class GeminiService: AIModel {
                 
                 var body: [String: Any] = ["contents": contents]
                 if !realTimeStreamingEnabled {
-                    body["generationConfig"] = ["response_mime_type": "application/json"]
+                    body["generationConfig"] = [
+                        "response_mime_type": "application/json",
+                        "maxOutputTokens": Self.maxOutputTokens(for: category)
+                    ]
+                } else {
+                    body["generationConfig"] = [
+                        "maxOutputTokens": Self.maxOutputTokens(for: category)
+                    ]
                 }
                 
                 PromptBuilder.printFinalPromptSent(provider: "Gemini", systemPrompt: systemPrompt, userPrompt: prompt, conversationContextCount: conversationContext.count, hasImage: imageData != nil)
@@ -404,6 +423,7 @@ final class GeminiService: AIModel {
                         let throttleInterval = 0.1
                         var pendingContent = ""
                         var lastFlushAt: TimeInterval = 0
+                        var rawStreamContent = ""
                         for try await line in bytes.lines {
                             if Task.isCancelled { throw CancellationError() }
                             if line.isEmpty { continue }
@@ -418,6 +438,7 @@ final class GeminiService: AIModel {
                                       let firstPart = parts.first,
                                       let text = firstPart["text"] as? String else { continue }
                                 if !text.isEmpty {
+                                    rawStreamContent += text
                                     pendingContent += text
                                     let now = Date().timeIntervalSince1970
                                     if now - lastFlushAt >= throttleInterval {
@@ -435,6 +456,8 @@ final class GeminiService: AIModel {
                         if !pendingContent.isEmpty { _ = parser.addChunk(pendingContent) }
                         if let response = parser.finalize() {
                             continuation.yield(response)
+                        } else if let fallback = fallbackStreamingResponse(from: rawStreamContent) {
+                            continuation.yield(fallback)
                         }
                     } else {
                         let parser = StreamingResponseParser()
@@ -519,6 +542,42 @@ final class GeminiService: AIModel {
         default:
             return nil
         }
+    }
+
+    /// Fallback so UI still renders even if strict block parsing fails.
+    private func fallbackStreamingResponse(from raw: String) -> StreamingResponse? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let cleaned = sanitizeProtocolTags(trimmed)
+        let safeText = String(cleaned.prefix(1600))
+        return StreamingResponse(
+            title: "Interview Answer",
+            sections: [
+                MessageSection(type: .shortAnswer, content: .text(safeText), language: nil)
+            ],
+            isComplete: true
+        )
+    }
+
+    private func sanitizeProtocolTags(_ text: String) -> String {
+        var result = text
+        let patterns = [
+            #"<<\/?TITLE>>?"#,
+            #"<<\/?CONTEXT>>?"#,
+            #"<<SECTION:[^>]*>>?"#,
+            #"<</SECTION>>?"#,
+            #"</SECTION>>?"#,
+            #"<<END_SECTION>>?"#,
+            #"</END_SECTION>>?"#
+        ]
+        for pattern in patterns {
+            result = result.replacingOccurrences(
+                of: pattern,
+                with: "",
+                options: [.regularExpression, .caseInsensitive]
+            )
+        }
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 

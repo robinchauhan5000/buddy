@@ -15,6 +15,17 @@ final class ClaudeAIService: AIModel {
     private static let anthropicVersion = "2023-06-01"
     private static let baseURL = "https://api.anthropic.com/v1/messages"
 
+    /// Category-based output budget to reduce latency.
+    private static func maxTokens(for category: Category) -> Int {
+        switch category {
+        case .quickAnswers, .shortAnswers, .trueFalse: return 320
+        case .mcq, .outputType, .technical: return 600
+        case .coding, .detailedAnswer: return 1400
+        case .scenarioBasedSystemDesign: return 1800
+        case .systemDesign: return 2600
+        }
+    }
+
     init(apiKey: String) {
         self.apiKey = apiKey
         if apiKey.isEmpty {
@@ -69,7 +80,7 @@ final class ClaudeAIService: AIModel {
 
         let body: [String: Any] = [
             "model": Self.model,
-            "max_tokens": 8192,
+            "max_tokens": Self.maxTokens(for: category),
             "system": systemPrompt,
             "messages": [
                 ["role": "user", "content": messagesContent]
@@ -141,6 +152,7 @@ final class ClaudeAIService: AIModel {
         return streamClaudeResponse(
             systemPrompt: systemPrompt,
             userPrompt: userPrompt,
+            category: category,
             imageData: imageData,
             conversationContext: conversationContext,
             realTimeStreamingEnabled: realTimeStreamingEnabled
@@ -152,6 +164,7 @@ final class ClaudeAIService: AIModel {
     private func streamClaudeResponse(
         systemPrompt: String,
         userPrompt: String,
+        category: Category,
         imageData: Data?,
         conversationContext: [[String: Any]],
         realTimeStreamingEnabled: Bool
@@ -187,7 +200,7 @@ final class ClaudeAIService: AIModel {
 
                     let body: [String: Any] = [
                         "model": Self.model,
-                        "max_tokens": 8192,
+                        "max_tokens": Self.maxTokens(for: category),
                         "stream": true,
                         "system": fullSystemPrompt,
                         "messages": [["role": "user", "content": messagesContent]]
@@ -221,6 +234,7 @@ final class ClaudeAIService: AIModel {
                         let throttleInterval = 0.1
                         var pendingContent = ""
                         var lastFlushAt: TimeInterval = 0
+                        var rawStreamContent = ""
                         for try await line in bytes.lines {
                             if Task.isCancelled { throw CancellationError() }
                             guard line.hasPrefix("data: ") else { continue }
@@ -232,6 +246,7 @@ final class ClaudeAIService: AIModel {
                                let delta = json["delta"] as? [String: Any] {
                                 let text = (delta["text"] as? String) ?? (delta["text_delta"] as? String) ?? ""
                                 if !text.isEmpty {
+                                    rawStreamContent += text
                                     pendingContent += text
                                     let now = Date().timeIntervalSince1970
                                     if now - lastFlushAt >= throttleInterval {
@@ -250,6 +265,8 @@ final class ClaudeAIService: AIModel {
                         if !pendingContent.isEmpty { _ = parser.addChunk(pendingContent) }
                         if let response = parser.finalize() {
                             continuation.yield(response)
+                        } else if let fallback = fallbackStreamingResponse(from: rawStreamContent) {
+                            continuation.yield(fallback)
                         }
                     } else {
                         let parser = StreamingResponseParser()
@@ -309,6 +326,42 @@ final class ClaudeAIService: AIModel {
         return message
     }
 
+    /// Fallback so UI still renders even if strict block parsing fails.
+    private func fallbackStreamingResponse(from raw: String) -> StreamingResponse? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let cleaned = sanitizeProtocolTags(trimmed)
+        let safeText = String(cleaned.prefix(1600))
+        return StreamingResponse(
+            title: "Interview Answer",
+            sections: [
+                MessageSection(type: .shortAnswer, content: .text(safeText), language: nil)
+            ],
+            isComplete: true
+        )
+    }
+
+    private func sanitizeProtocolTags(_ text: String) -> String {
+        var result = text
+        let patterns = [
+            #"<<\/?TITLE>>?"#,
+            #"<<\/?CONTEXT>>?"#,
+            #"<<SECTION:[^>]*>>?"#,
+            #"<</SECTION>>?"#,
+            #"</SECTION>>?"#,
+            #"<<END_SECTION>>?"#,
+            #"</END_SECTION>>?"#
+        ]
+        for pattern in patterns {
+            result = result.replacingOccurrences(
+                of: pattern,
+                with: "",
+                options: [.regularExpression, .caseInsensitive]
+            )
+        }
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     // MARK: - Phased System Design (same pattern as OpenAI)
 
     private func streamPhasedSystemDesign(
@@ -345,6 +398,7 @@ final class ClaudeAIService: AIModel {
                         let phaseStream = streamClaudeResponse(
                             systemPrompt: baseSystemPrompt,
                             userPrompt: userPrompt,
+                            category: .systemDesign,
                             imageData: phaseImageData,
                             conversationContext: conversationContext,
                             realTimeStreamingEnabled: false

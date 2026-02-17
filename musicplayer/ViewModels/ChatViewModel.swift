@@ -293,10 +293,23 @@ final class ChatViewModel: ObservableObject {
             var lastResponse: StreamingResponse?
             for try await response in stream {
                 lastResponse = response
+                print("🧩 Streaming update: title=\(response.title.count) chars, sections=\(response.sections.count), complete=\(response.isComplete)")
                 updateStreamingMessage(
                     messageId: messageId,
                     response: response
                 )
+            }
+            if lastResponse == nil {
+                print("❌ No StreamingResponse chunks received from provider.")
+                if let index = messages.firstIndex(where: { $0.id == messageId }) {
+                    messages[index] = ChatMessage(
+                        id: messageId,
+                        role: .assistant,
+                        content: .error("No response content received from AI provider."),
+                        timestamp: messages[index].timestamp,
+                        isStreaming: false
+                    )
+                }
             }
             finalizeStreamingMessage(messageId: messageId, question: question, streamingContextPayload: lastResponse?.contextPayload)
         } catch is CancellationError {

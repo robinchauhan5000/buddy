@@ -155,7 +155,7 @@ class InterviewCopilotViewModel: ObservableObject {
                 self.chromeRecognitionRequest = nil
                 self.isChromeSoundActive = false
             }
-            print("Chrome audio capture failed: \(error.localizedDescription). Ensure Google Chrome is running and Screen Recording permission is granted.")
+            print("System audio capture failed: \(error.localizedDescription). Ensure Screen Recording permission is granted in System Settings → Privacy & Security.")
         }
     }
 

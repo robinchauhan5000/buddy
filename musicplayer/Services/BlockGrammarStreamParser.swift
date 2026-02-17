@@ -41,13 +41,51 @@ final class BlockGrammarStreamParser {
 
     /// Accepts both "<</TAG>>" and "</TAG>>" so we parse correctly when the model (e.g. Gemini) drops a leading "<".
     private func rangeOfClosingTag(_ tag: String, in buffer: String) -> Range<String.Index>? {
-        let doubleAngle = "<</\(tag)>>"
-        let singleAngle = "</\(tag)>>"
-        let r1 = buffer.range(of: doubleAngle, options: .caseInsensitive)
-        let r2 = buffer.range(of: singleAngle, options: .caseInsensitive)
-        switch (r1, r2) {
+        let variants = [
+            "<</\(tag)>>",
+            "</\(tag)>>",
+            "<</\(tag)>",
+            "</\(tag)>"
+        ]
+        var earliest: Range<String.Index>?
+        for variant in variants {
+            if let r = buffer.range(of: variant, options: .caseInsensitive) {
+                if let e = earliest {
+                    if r.lowerBound < e.lowerBound { earliest = r }
+                } else {
+                    earliest = r
+                }
+            }
+        }
+        return earliest
+    }
+
+    /// Opening tag may arrive with either >> or >.
+    private func rangeOfOpeningTag(_ tag: String, in buffer: String) -> Range<String.Index>? {
+        let variants = [
+            "<<\(tag)>>",
+            "<<\(tag)>"
+        ]
+        var earliest: Range<String.Index>?
+        for variant in variants {
+            if let r = buffer.range(of: variant, options: .caseInsensitive) {
+                if let e = earliest {
+                    if r.lowerBound < e.lowerBound { earliest = r }
+                } else {
+                    earliest = r
+                }
+            }
+        }
+        return earliest
+    }
+
+    /// SECTION header terminator can be either ">>" or ">".
+    private func rangeOfSectionHeaderTerminator(in buffer: String) -> Range<String.Index>? {
+        let rDouble = buffer.range(of: ">>")
+        let rSingle = buffer.range(of: ">")
+        switch (rDouble, rSingle) {
         case let (.some(a), .some(b)):
-            return a.lowerBound < b.lowerBound ? a : b
+            return a.lowerBound <= b.lowerBound ? a : b
         case (.some(let a), .none), (.none, .some(let a)):
             return a
         case (.none, .none):
@@ -80,13 +118,13 @@ final class BlockGrammarStreamParser {
             iterations += 1
             switch state {
             case .idle:
-                if let range = buffer.range(of: "<<TITLE>>", options: .caseInsensitive) {
+                if let range = rangeOfOpeningTag("TITLE", in: buffer) {
                     buffer.removeSubrange(range)
                     state = .readingTitle
                 } else if let range = buffer.range(of: "<<SECTION:", options: .caseInsensitive) {
                     buffer.removeSubrange(buffer.startIndex..<range.upperBound)
                     state = .readingSectionHeader
-                } else if let range = buffer.range(of: "<<CONTEXT>>", options: .caseInsensitive) {
+                } else if let range = rangeOfOpeningTag("CONTEXT", in: buffer) {
                     buffer.removeSubrange(buffer.startIndex..<range.upperBound)
                     contextBuffer = ""
                     state = .readingContext
@@ -111,7 +149,7 @@ final class BlockGrammarStreamParser {
                     break
                 }
             case .readingSectionHeader:
-                guard let sectionRange = buffer.range(of: ">>", options: []) else { break }
+                guard let sectionRange = rangeOfSectionHeaderTerminator(in: buffer) else { break }
                 let header = String(buffer[..<sectionRange.lowerBound])
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 buffer.removeSubrange(buffer.startIndex..<sectionRange.upperBound)
@@ -125,6 +163,7 @@ final class BlockGrammarStreamParser {
                     if let type = currentSectionType {
                         currentSectionContent += content
                         var text = currentSectionContent.trimmingCharacters(in: .whitespacesAndNewlines)
+                        text = Self.stripProtocolTags(text)
                         if type == .mermaidDiagram { text = Self.stripMermaidSectionTags(text) }
                         sections.append(MessageSection(
                             type: type,
@@ -145,6 +184,7 @@ final class BlockGrammarStreamParser {
                         buffer.removeFirst(safeCount)
                         if let type = currentSectionType {
                             var partialText = currentSectionContent
+                            partialText = Self.stripProtocolTags(partialText)
                             if type == .mermaidDiagram { partialText = Self.stripMermaidSectionTags(partialText) }
                             let partial = MessageSection(
                                 type: type,
@@ -186,6 +226,7 @@ final class BlockGrammarStreamParser {
     private func flushCurrentSection() {
         guard let type = currentSectionType else { return }
         var text = currentSectionContent.trimmingCharacters(in: .whitespacesAndNewlines)
+        text = Self.stripProtocolTags(text)
         if type == .mermaidDiagram { text = Self.stripMermaidSectionTags(text) }
         if !text.isEmpty {
             sections.append(MessageSection(
@@ -242,6 +283,38 @@ final class BlockGrammarStreamParser {
             }
         }
         return result
+    }
+
+    /// Removes Streaming Block Protocol tags that might be echoed inside section content.
+    private static func stripProtocolTags(_ text: String) -> String {
+        var result = text
+        // Remove concrete known tags first (both expected and malformed single-angle variants).
+        let fixedTags = [
+            "<<TITLE>>", "<</TITLE>>", "</TITLE>>",
+            "<<CONTEXT>>", "<</CONTEXT>>", "</CONTEXT>>",
+            "<</SECTION>>", "</SECTION>>",
+            "<<END_SECTION>>", "</END_SECTION>>"
+        ]
+        for tag in fixedTags {
+            while let range = result.range(of: tag, options: .caseInsensitive) {
+                result.removeSubrange(range)
+            }
+        }
+
+        // Remove any opening SECTION tag variants, e.g. <<SECTION:type=code language=golang>>.
+        result = result.replacingOccurrences(
+            of: #"<<SECTION:[^>]*>>"#,
+            with: "",
+            options: [.regularExpression, .caseInsensitive]
+        )
+        // Remove malformed single-angle variant if model drops one "<".
+        result = result.replacingOccurrences(
+            of: #"</SECTION:[^>]*>>"#,
+            with: "",
+            options: [.regularExpression, .caseInsensitive]
+        )
+
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func sectionTypeFromGrammar(_ raw: String) -> SectionType? {

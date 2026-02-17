@@ -2,7 +2,7 @@
 //  ChromeAudioCaptureManager.swift
 //  musicplayer
 //
-//  Captures audio from Google Chrome only using ScreenCaptureKit (macOS 13+).
+//  Captures system audio (all apps on the display) using ScreenCaptureKit (macOS 13+).
 //  Outputs raw audio buffers for STT, saving to file, or streaming.
 //
 
@@ -18,7 +18,7 @@ final class ChromeAudioCaptureManager {
     private let audioOutput = ChromeAudioStreamOutput()
     private let dummyScreenOutput = ChromeDummyScreenOutput()
 
-    /// Set this to receive Chrome audio buffers (e.g. append to SFSpeechAudioBufferRecognitionRequest).
+    /// Set this to receive system audio buffers (e.g. append to SFSpeechAudioBufferRecognitionRequest).
     var onAudioBuffer: ((AVAudioPCMBuffer) -> Void)? {
         get { audioOutput.onAudioBuffer }
         set { audioOutput.onAudioBuffer = newValue }
@@ -35,19 +35,9 @@ final class ChromeAudioCaptureManager {
                 CGRequestScreenCaptureAccess()
             }
             throw NSError(
-                domain: "ChromeCapture",
+                domain: "SystemAudioCapture",
                 code: -3,
                 userInfo: [NSLocalizedDescriptionKey: "Screen Recording permission is required. Please enable it in System Settings → Privacy & Security → Screen Recording."]
-            )
-        }
-
-        guard let chromeApp = content.applications.first(where: {
-            $0.applicationName == "Google Chrome"
-        }) else {
-            throw NSError(
-                domain: "ChromeNotFound",
-                code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Google Chrome is not running"]
             )
         }
 
@@ -56,15 +46,16 @@ final class ChromeAudioCaptureManager {
                 CGRequestScreenCaptureAccess()
             }
             throw NSError(
-                domain: "ChromeCapture",
+                domain: "SystemAudioCapture",
                 code: -2,
                 userInfo: [NSLocalizedDescriptionKey: "Screen Recording permission is required, or no display is available. Please enable it in System Settings → Privacy & Security → Screen Recording."]
             )
         }
 
+        // Include all applications so we capture system-wide audio (every app on the display), not just one app.
         let filter = SCContentFilter(
             display: display,
-            including: [chromeApp],
+            including: content.applications,
             exceptingWindows: []
         )
 
@@ -86,12 +77,12 @@ final class ChromeAudioCaptureManager {
         try await stream.addStreamOutput(
             audioOutput,
             type: SCStreamOutputType.audio,
-            sampleHandlerQueue: DispatchQueue(label: "chrome.audio.queue")
+            sampleHandlerQueue: DispatchQueue(label: "system.audio.queue")
         )
         try await stream.addStreamOutput(
             dummyScreenOutput,
             type: SCStreamOutputType.screen,
-            sampleHandlerQueue: DispatchQueue(label: "chrome.screen.queue")
+            sampleHandlerQueue: DispatchQueue(label: "system.screen.queue")
         )
 
         try await stream.startCapture()
