@@ -302,7 +302,7 @@ final class DeepSeekService {
                     // DeepSeek doesn't support streaming in this implementation, so we get the full response
                     let response = try await getInterviewResponse(
                         prompt: prompt,
-                        category: .normal,
+                        category: .detailedAnswer,
                         language: language,
                         imageData: imageData,
                         conversationContext: conversationContext

@@ -29,7 +29,7 @@ struct HeaderView: View {
         VStack(spacing: DesignSystem.Spacing.md) {
             HStack(spacing: DesignSystem.Spacing.lg) {
                 HStack(spacing: DesignSystem.Spacing.md) {
-                    ForEach(AIProvider.allCases) { provider in
+                    ForEach([AIProvider.openAI, AIProvider.gemini]) { provider in
                         ProviderButton(
                             provider: provider,
                             isSelected: selectedProvider == provider,
@@ -165,7 +165,7 @@ struct HeaderView: View {
 
 #Preview {
     @Previewable @State var provider: AIProvider = .openAI
-    @Previewable @State var category: Category = .normal
+    @Previewable @State var category: Category = .detailedAnswer
     @Previewable @State var language: ProgrammingLanguage = .golang
     @Previewable @State var continueConversation: Bool = true
     @Previewable @State var useInterviewCounterQuestionPrompt: Bool = false

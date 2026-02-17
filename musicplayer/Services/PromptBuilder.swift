@@ -272,6 +272,7 @@ LANGUAGE:
 
 EXPERTISE:
 - Distributed systems & microservices
+- Docker, Docker Compose, Kubernetes, Helm, ArgoCD, Ansible, Terraform, etc.
 - Kafka, async processing, retries, idempotency
 - Databases: Postgres, MongoDB, Redis
 - Containers and production operations
@@ -290,8 +291,8 @@ LANGUAGE:
     ) -> String {
 
         switch category {
-        case .normal:
-            return getNormalPrompt()
+        case .detailedAnswer:
+            return getDetailedAnswerPrompt()
         case .coding:
             return getCodingPrompt(language: language)
         case .technical:
@@ -313,17 +314,17 @@ LANGUAGE:
         }
     }
 
-    private static func getNormalPrompt() -> String {
+    private static func getDetailedAnswerPrompt() -> String {
         """
-CATEGORY: Standard Interview Question
+CATEGORY: Detailed Answer
 
 STRUCTURE:
-- short_answer: Direct explanation
-- details: Key points or examples
-- code: Only if it improves clarity
+- short_answer: Explain the concept clearly (what it is, why it matters).
+- code: Provide working code in the requested language (required).
+- details: Explain the code (how it works, key lines, and why it solves the problem).
 
 STYLE:
-Clear, practical, interview-ready
+Concept first, then code, then code explanation. Interview-ready and thorough.
 """
     }
 
@@ -443,6 +444,7 @@ Precise and confident
             return """
 STREAMING SECTIONS FOR THIS CATEGORY (Rapid Interview – follow exactly):
 - Output ONLY <<SECTION:type=short_answer>> (required; 1–3 sentences).
+- Output ONLY <<SECTION:type=details>> Single line answer.
 - Output ONLY <<SECTION:type=details>> (required; Highlight important keywords or phrases from the answer).
 - Optionally <<SECTION:type=details>> only if truly needed (≤5 bullets). Omit if the answer fits in short_answer.
 - Output ONLY <<SECTION:type=code>> code in selected language \(language.rawValue).
@@ -451,6 +453,7 @@ STREAMING SECTIONS FOR THIS CATEGORY (Rapid Interview – follow exactly):
             return """
 STREAMING SECTIONS FOR THIS CATEGORY (Quick Answers – follow exactly):
 - Output <<SECTION:type=short_answer>> with the quick answer (required).
+- Output ONLY <<SECTION:type=details>> Single line answer.
 - Output ONLY <<SECTION:type=details>> (required; Highlight important keywords or phrases from the answer).
 - Optionally <<SECTION:type=details>> for a brief expansion. Keep both short.
 - Do NOT output code unless the question explicitly requires it.
@@ -469,12 +472,12 @@ STREAMING SECTIONS FOR THIS CATEGORY (Coding – follow exactly):
 - Output <<SECTION:type=code language=\(language.codeIdentifier)>> with the complete working solution (required). Use \(language.rawValue).
 - Output <<SECTION:type=details>> with complexity, edge cases, alternatives. Order: short_answer then code then details.
 """
-        case .normal:
+        case .detailedAnswer:
             return """
-STREAMING SECTIONS FOR THIS CATEGORY (Standard – follow exactly):
-- Output <<SECTION:type=short_answer>> (direct explanation).
-- Output <<SECTION:type=details>> for key points or examples.
-- Output <<SECTION:type=code>> only if it improves clarity; omit code if not needed.
+STREAMING SECTIONS FOR THIS CATEGORY (Detailed Answer – follow exactly):
+- Output <<SECTION:type=short_answer>> (required): Explain the concept clearly—what it is and why it matters.
+- Output <<SECTION:type=code language=\(language.codeIdentifier)>> (required): Provide working code in \(language.rawValue).
+- Output <<SECTION:type=details>> (required): Explain the code—how it works, key lines, and why it solves the problem. Order: short_answer then code then details.
 """
         case .technical:
             return """

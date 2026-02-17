@@ -43,7 +43,7 @@ struct CategoryPicker: View {
 }
 
 #Preview {
-    @Previewable @State var category: Category = .normal
+    @Previewable @State var category: Category = .detailedAnswer
     
     CategoryPicker(selectedCategory: $category)
         .padding()

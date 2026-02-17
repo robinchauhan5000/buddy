@@ -13,7 +13,7 @@ final class GeminiService: AIModel {
     
     private static func model(for category: Category) -> String {
         switch category {
-        case .normal:
+        case .detailedAnswer:
             return "gemini-2.5-flash"
         case .shortAnswers:
             return "gemini-2.5-flash-lite"

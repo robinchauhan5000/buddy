@@ -63,7 +63,7 @@ struct ControlBar: View {
 
 #Preview {
     @Previewable @State var provider: AIProvider = .openAI
-    @Previewable @State var category: Category = .normal
+    @Previewable @State var category: Category = .detailedAnswer
     @Previewable @State var language: ProgrammingLanguage = .golang
     
     ControlBar(

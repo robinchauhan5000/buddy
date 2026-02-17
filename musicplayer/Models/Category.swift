@@ -8,7 +8,7 @@
 import Foundation
 
 enum Category: String, CaseIterable, Identifiable {
-    case normal = "Normal"
+    case detailedAnswer = "Detailed Answer"
     case shortAnswers = "Short Answers interview"
     case quickAnswers = "Quick Answers interview"
     case trueFalse = "True/False interview"

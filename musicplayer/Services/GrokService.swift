@@ -302,7 +302,7 @@ final class GrokService {
                     // Grok doesn't support streaming, so we get the full response and simulate streaming
                     let response = try await getInterviewResponse(
                         prompt: prompt,
-                        category: .normal,
+                        category: .detailedAnswer,
                         language: language,
                         imageData: imageData,
                         conversationContext: conversationContext

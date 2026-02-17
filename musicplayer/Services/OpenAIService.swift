@@ -7,7 +7,7 @@ final class OpenAIService: AIModel {
     /// Model per category (OpenAI): Normal/System Design/Technical/Coding use full models; Short/Quick/TrueFalse use fast.
     private static func model(for category: Category) -> String {
         switch category {
-        case .normal: return "gpt-5-nano"
+        case .detailedAnswer: return "gpt-5.1"
         case .shortAnswers: return "gpt-5-mini"
         case .quickAnswers: return "gpt-5-nano"
         case .trueFalse: return "gpt-5-nano"
