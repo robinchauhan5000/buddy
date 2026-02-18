@@ -79,13 +79,26 @@ enum CodeHighlighter {
         return (code.trimmingCharacters(in: .whitespacesAndNewlines), lang.isEmpty ? nil : lang)
     }
 
+    /// Strip leaked protocol tag fragments (e.g. </SECTION>, </) that can break highlighting.
+    private static func stripLeakedTags(_ s: String) -> String {
+        var t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        while t.hasSuffix("</SECTION") || t.hasSuffix("</SECTION>") || t.hasSuffix("</") {
+            if t.hasSuffix("</SECTION>") { t = String(t.dropLast(11)) }
+            else if t.hasSuffix("</SECTION") { t = String(t.dropLast(9)) }
+            else if t.hasSuffix("</") { t = String(t.dropLast(2)) }
+            t = t.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return t
+    }
+
     /// Highlight code with dynamic language detection.
     /// - Parameters:
     ///   - content: Raw content (may include ```language\n...\n``` or plain code).
     ///   - explicitLanguage: Optional language from section (e.g. "go", "golang").
     /// - Returns: Highlighted `NSAttributedString`, or nil to fall back to plain text.
     static func highlight(content: String, explicitLanguage: String? = nil) -> NSAttributedString? {
-        let (code, parsedLang) = parseCodeFence(content)
+        let sanitized = stripLeakedTags(content)
+        let (code, parsedLang) = parseCodeFence(sanitized)
         let effectiveLang = explicitLanguage ?? parsedLang
         let lang = normalizeLanguage(effectiveLang) ?? effectiveLang?.lowercased()
         guard let highlightr = shared else { return nil }

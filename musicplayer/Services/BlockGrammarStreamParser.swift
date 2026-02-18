@@ -292,7 +292,7 @@ final class BlockGrammarStreamParser {
         let fixedTags = [
             "<<TITLE>>", "<</TITLE>>", "</TITLE>>",
             "<<CONTEXT>>", "<</CONTEXT>>", "</CONTEXT>>",
-            "<</SECTION>>", "</SECTION>>",
+            "<</SECTION>>", "</SECTION>>", "</SECTION>",
             "<<END_SECTION>>", "</END_SECTION>>"
         ]
         for tag in fixedTags {
@@ -303,16 +303,24 @@ final class BlockGrammarStreamParser {
 
         // Remove any opening SECTION tag variants, e.g. <<SECTION:type=code language=golang>>.
         result = result.replacingOccurrences(
-            of: #"<<SECTION:[^>]*>>"#,
+            of: #"<<SECTION:[^>]*>>?"#,
             with: "",
             options: [.regularExpression, .caseInsensitive]
         )
         // Remove malformed single-angle variant if model drops one "<".
         result = result.replacingOccurrences(
-            of: #"</SECTION:[^>]*>>"#,
+            of: #"</SECTION:[^>]*>>?"#,
             with: "",
             options: [.regularExpression, .caseInsensitive]
         )
+
+        // Trim trailing leaked tag fragments (e.g. truncated </ or </SECTION).
+        while true {
+            let t = result.trimmingCharacters(in: .whitespacesAndNewlines)
+            if t.hasSuffix("</SECTION") { result = String(t.dropLast(9)).trimmingCharacters(in: .whitespacesAndNewlines) }
+            else if t.hasSuffix("</") { result = String(t.dropLast(2)).trimmingCharacters(in: .whitespacesAndNewlines) }
+            else { break }
+        }
 
         return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }

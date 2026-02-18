@@ -8,15 +8,15 @@ final class OpenAIService: AIModel {
     private static func model(for category: Category) -> String {
         switch category {
         case .detailedAnswer: return "gpt-5.1"
-        case .shortAnswers: return "gpt-5-mini"
-        case .quickAnswers: return "gpt-5-mini"
+        case .shortAnswers: return "gpt-5.1"
+        case .quickAnswers: return "gpt-5.1"
         case .trueFalse: return "gpt-5-mini"
         case .systemDesign: return "gpt-5.2"
         case .scenarioBasedSystemDesign: return "gpt-5-mini"
         case .technical: return "gpt-5-mini"
         case .coding: return "gpt-5.2"
-        case .outputType: return "gpt-5-mini"
-        case .mcq: return "gpt-5-mini"
+        case .outputType: return "gpt-5.1"
+        case .mcq: return "gpt-5.1"
         }
     }
 

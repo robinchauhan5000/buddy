@@ -55,8 +55,7 @@ CATEGORY: Interview Deep Justification
 ROLE:
 You are the interviewee (candidate) answering a technical interview question.
 
-GOAL:
-Provide a complete answer AND proactively address the follow-up questions an interviewer would ask.
+GOAL: interview-ready answer and  a complete answer AND proactively address the follow-up questions an interviewer would ask.
 
 BEHAVIOR:
 - Clearly explain WHY a particular approach or technology was chosen
@@ -115,7 +114,7 @@ TONE:
         return """
 ROLE:
 You are a senior fullstack engineer answering technical interview questions.
-
+Strict - interview-ready answer
 OUTPUT CONTRACT:
 - Strictly follow the streaming rules. <<SECTION:type=short_answer>> <<>>.
 - Streaming Block Protocol only.
@@ -137,85 +136,90 @@ REQUESTED LANGUAGE FOR CODE: \(language.rawValue) (use language=\(language.codeI
         case .shortAnswers:
             return commonStreamingFormatRules("""
             CATEGORY RULES (Rapid Interview):
-            - short_answer: in a interview-ready response, max 3 sentences.
+            - short_answer: interview-ready answer
             - details: max 5 bullets with reasoning and trade-offs.
-            - code: must provide complete runnable \(language.rawValue) code solution.
+            - code: minimal valid placeholder in \(language.rawValue).
             """)
         case .quickAnswers:
             return commonStreamingFormatRules("""
             CATEGORY RULES (Quick Answers):
-            - short_answer: in a interview-ready response, max 2 lines, direct answer.
-            - details: max 3 bullets, high-signal only.
+            - short_answer: interview-ready answer.
+            - details: Brief justification explaining why the answer is correct.
+            - No code is required for this category.
             """)
         case .trueFalse:
             return commonStreamingFormatRules("""
             CATEGORY RULES (True/False):
-            - short_answer: in a interview-ready response, ONLY "True" or "False".
-            - details: brief technical justification (max 3 bullets).
+            - short_answer: interview-ready answer, ONLY "True" or "False".
+            - details: Brief justification explaining why the answer is correct.
             - code: include only when required by question, else minimal valid placeholder in \(language.rawValue).
             """)
         case .coding:
             return commonStreamingFormatRules("""
             CATEGORY RULES (Coding Interview):
-            - short_answer: in a interview-ready response, approach in 2-4 concise lines.
-            - details: complexity, edge cases, and alternatives (max 5 bullets).
             - code: complete production-ready \(language.rawValue) solution.
+            - short_answer: interview-ready answer.
+            - details: Approach to solve the problem in simple words, clearly mentioning the technique used (e.g., Sliding Window, HashMap, Two Pointers, Dynamic Programming, etc.).
+            - details: Why this is optimal solution and not other approaches.
+            - details: Explain how the solution works, key trade-offs, and pitfalls.
             """)
         case .detailedAnswer:
             return commonStreamingFormatRules("""
             CATEGORY RULES (Detailed Answer):
-            - short_answer: in a interview-ready response, concept and why it matters.
+            - short_answer: Provide a direct, interview-ready answer
             - details: how solution works, key trade-offs, and pitfalls.
             - code: complete idiomatic \(language.rawValue) implementation.
             """)
         case .technical:
             return commonStreamingFormatRules("""
             CATEGORY RULES (Technical Deep Dive):
-            - short_answer: in a interview-ready response, direct core concept.
+            - short_answer: Provide a direct, interview-ready answer
             - details: why/how, trade-offs, and best practices.
             - code: concise pattern/example in \(language.rawValue) when useful.
             """)
         case .systemDesign:
             return commonStreamingFormatRules("""
             CATEGORY RULES (System Design):
-            - short_answer: in a interview-ready response, high-level architecture in 2-4 lines.
+            - short_answer: interview-ready answer, high-level architecture in 2-4 lines.
             - details: requirements, components, bottlenecks, and trade-offs.
             - code: only concrete snippet if essential; otherwise minimal placeholder.
             """)
         case .scenarioBasedSystemDesign:
             return commonStreamingFormatRules("""
-            CATEGORY RULES (Scenario-Based System Design):
-            - short_answer: in a interview-ready response, direct plan for the given scenario.
-            - details: assumptions, key decisions, and operational trade-offs.
-            - code: only if required; otherwise minimal placeholder.
+            CATEGORY RULES (Scenario-Based Interview Question):
+            - short_answer: interview-ready answer, direct plan for the given scenario.
+            - code: complete production-ready \(language.rawValue) solution. (only if required; otherwise minimal placeholder.)
             """)
         case .outputType:
             return commonStreamingFormatRules("""
             CATEGORY RULES (Output Type):
             - short_answer: exact output value/text.
-            - details: in a interview-ready response, step-by-step execution reasoning.
-            - code: corrected/illustrative snippet only when needed; otherwise minimal placeholder.
+            - details: interview-ready answer, Brief justification explaining why the answer is correct.
             """)
         case .mcq:
             return commonStreamingFormatRules("""
             CATEGORY RULES (MCQ):
-            - short_answer: in a interview-ready response, clearly state one correct option.
-            - details: concise reasoning and why alternatives fail (if helpful).
-            - code: tiny example only if needed; otherwise minimal placeholder.
+            - short_answer: interview-ready answer, clearly state one correct option.
+            - details: interview-ready answer concise reasoning and why alternatives fail (if helpful).
             """)
         }
     }
 
     private static func commonStreamingFormatRules(_ categoryRules: String) -> String {
         """
-SECTION ORDER (STRICT):
+SECTION ORDER:
 1) <<TITLE>> ... <</TITLE>>
 2) <<SECTION:type=short_answer>> ... <</SECTION>>
 3) <<SECTION:type=details>> ... <</SECTION>>
-4) <<SECTION:type=code language=...>> ... <</SECTION>>
+4) <<SECTION:type=code language=...>> ... <</SECTION>> (ONLY if required by category)
 5) <<CONTEXT>> ... <</CONTEXT>>  (MUST be last)
 
 \(categoryRules)
+
+User input may come from speech-to-text and contain incorrect technical spellings
+or phonetic substitutions.
+Example: - "Cuban eight", "Cuban and", "Kubernate" → Kubernetes
+         - "Go routines", "Go routine" → goroutines
 
 CONTEXT FORMAT (keep short):
 conversation_summary:
@@ -232,8 +236,6 @@ Do not output any extra sections or prose outside tags.
     static func buildSystemDesignFullUserPrompt(question: String) -> String {
         """
 Question: \(question)
-
-Return VALID JSON only.
 
 REQUIRED SECTIONS (ORDERED):
 1. problem_restatement
