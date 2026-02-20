@@ -24,6 +24,7 @@ struct HeaderView: View {
     var isChatGPTWebViewShown: Bool = false
     let onToggleChatGPTWebView: () -> Void
     var isMicrophoneActive: Bool = false
+    var microphoneCaptionText: String = ""
     var isChromeSoundActive: Bool = false
     var isScreenShareHidden: Bool = true
     
@@ -166,6 +167,22 @@ struct HeaderView: View {
                 
                 Spacer()
             }
+
+            if isMicrophoneActive {
+                HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
+                    Image(systemName: "mic.fill")
+                        .font(.system(size: DesignSystem.FontSize.sm))
+                        .foregroundColor(DesignSystem.Colors.accent)
+                    Text(microphoneCaptionText.isEmpty ? "Listening…" : microphoneCaptionText)
+                        .font(.system(size: DesignSystem.FontSize.sm))
+                        .foregroundColor(DesignSystem.Colors.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.horizontal, DesignSystem.Spacing.md)
+                .padding(.vertical, DesignSystem.Spacing.sm)
+                .background(DesignSystem.Colors.tertiaryBackground)
+                .cornerRadius(DesignSystem.CornerRadius.sm)
+            }
         }
         .padding(.horizontal, DesignSystem.Spacing.xl)
         .padding(.vertical, DesignSystem.Spacing.md)
@@ -197,6 +214,7 @@ struct HeaderView: View {
         isChatGPTWebViewShown: false,
         onToggleChatGPTWebView: {},
         isMicrophoneActive: true,
+        microphoneCaptionText: "This is the live caption when the mic is on.",
         isChromeSoundActive: false,
         isScreenShareHidden: true
     )

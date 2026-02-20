@@ -45,6 +45,7 @@ struct InterviewCopilotView: View {
                 isChatGPTWebViewShown: showChatGPTWebView,
                 onToggleChatGPTWebView: { showChatGPTWebView.toggle() },
                 isMicrophoneActive: viewModel.isMicrophoneActive,
+                microphoneCaptionText: viewModel.microphoneCaptionText,
                 isChromeSoundActive: viewModel.isChromeSoundActive,
                 isScreenShareHidden: viewModel.isScreenShareHidden
             )

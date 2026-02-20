@@ -16,6 +16,7 @@ class InterviewCopilotViewModel: ObservableObject {
     @Published var selectedCategory: Category = .detailedAnswer
     @Published var sessionState: SessionState = .active
     @Published var isMicrophoneActive: Bool = false
+    @Published var microphoneCaptionText: String = ""
     @Published var isChromeSoundActive: Bool = false
     @Published var isScreenShareHidden: Bool = true
     @Published var showSettings: Bool = false
@@ -35,6 +36,13 @@ class InterviewCopilotViewModel: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] isRecording in
                 self?.isMicrophoneActive = isRecording
+            }
+            .store(in: &cancellables)
+
+        speechRecognitionService.$recognizedText
+            .receive(on: RunLoop.main)
+            .sink { [weak self] text in
+                self?.microphoneCaptionText = text
             }
             .store(in: &cancellables)
     }
@@ -60,6 +68,7 @@ class InterviewCopilotViewModel: ObservableObject {
             if !finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 onSpeechRecognized?(finalText)
             }
+            microphoneCaptionText = ""
         } else {
             Task {
                 await speechRecognitionService.requestAuthorization()
