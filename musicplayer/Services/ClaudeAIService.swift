@@ -15,17 +15,7 @@ final class ClaudeAIService: AIModel {
     private static let anthropicVersion = "2023-06-01"
     private static let baseURL = "https://api.anthropic.com/v1/messages"
 
-    /// Category-based output budget to reduce latency.
-    private static func maxTokens(for category: Category) -> Int {
-        switch category {
-        case .quickAnswers, .shortAnswers, .trueFalse: return 320
-        case .mcq, .outputType, .technical: return 600
-        case .coding, .detailedAnswer: return 1400
-        case .scenarioBasedSystemDesign: return 1800
-        case .systemDesign: return 2600
-        }
-    }
-
+   
     init(apiKey: String) {
         self.apiKey = apiKey
         if apiKey.isEmpty {
@@ -80,7 +70,6 @@ final class ClaudeAIService: AIModel {
 
         let body: [String: Any] = [
             "model": Self.model,
-            "max_tokens": Self.maxTokens(for: category),
             "system": systemPrompt,
             "messages": [
                 ["role": "user", "content": messagesContent]
@@ -200,7 +189,6 @@ final class ClaudeAIService: AIModel {
 
                     let body: [String: Any] = [
                         "model": Self.model,
-                        "max_tokens": Self.maxTokens(for: category),
                         "stream": true,
                         "system": fullSystemPrompt,
                         "messages": [["role": "user", "content": messagesContent]]

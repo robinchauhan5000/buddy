@@ -202,6 +202,22 @@ REQUESTED LANGUAGE FOR CODE: \(language.rawValue) (use language=\(language.codeI
             - short_answer: interview-ready answer, clearly state one correct option.
             - details: interview-ready answer concise reasoning and why alternatives fail (if helpful).
             """)
+        case .codeCorrection:
+            return commonStreamingFormatRules("""
+            CATEGORY RULES (Code Correction):
+            - Input: code or screenshot of code that may be wrong or incorrect. Find the issue and provide the corrected solution.
+            - short_answer: interview-ready summary — what was wrong and the fix in 1–2 lines.
+            - details: (1) Clear explanation of what was wrong in the original code (bug, logic error, style/security issue, etc.). (2) Explanation of why the corrected solution is correct and how it fixes the issue.
+            - code: complete corrected \(language.rawValue) code (production-ready, same language as input when identifiable).
+            """)
+        case .optimizationCode:
+            return commonStreamingFormatRules("""
+            CATEGORY RULES (Optimization Code):
+            - Input: code or screenshot of code that may need optimization, or where the current implementation could be done in a better way (senior-developer perspective).
+            - short_answer: interview-ready summary — current approach vs better approach.
+            - details: Current approach: explain what the code does and how it works. (2) What is wrong with it: inefficiencies, readability, maintainability, performance, edge cases, or best-practice gaps. (3) Better approach: explain the optimized strategy and why it is superior (complexity, clarity, idioms, patterns).
+            - code: complete optimized \(language.rawValue) code (production-ready, idiomatic; same language as input when identifiable).
+            """)
         }
     }
 

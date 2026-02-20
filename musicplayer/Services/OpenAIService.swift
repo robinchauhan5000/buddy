@@ -17,6 +17,8 @@ final class OpenAIService: AIModel {
         case .coding: return "gpt-5.2"
         case .outputType: return "gpt-5.1"
         case .mcq: return "gpt-5.1"
+        case .codeCorrection: return "gpt-5.1"
+        case .optimizationCode: return "gpt-5.1"
         }
     }
 

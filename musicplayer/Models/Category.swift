@@ -18,6 +18,8 @@ enum Category: String, CaseIterable, Identifiable {
     case coding = "Coding Round interview"
     case outputType = "Output Type interview"
     case mcq = "MCQ interview"
-    
+    case codeCorrection = "Code Correction"
+    case optimizationCode = "Optimization Code"
+
     var id: String { rawValue }
 }

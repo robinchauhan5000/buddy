@@ -33,19 +33,15 @@ final class GeminiService: AIModel {
             return "gemini-2.5-flash"
         case .mcq:
             return "gemini-2.5-flash"
+        case .codeCorrection:
+            return "gemini-2.5-flash"
+        case .optimizationCode:
+            return "gemini-2.5-flash"
+
         }
     }
 
-    /// Category-based output budget to improve speed and keep answers focused.
-    private static func maxOutputTokens(for category: Category) -> Int {
-        switch category {
-        case .quickAnswers, .shortAnswers, .trueFalse: return 320
-        case .mcq, .outputType, .technical: return 600
-        case .coding, .detailedAnswer: return 1400
-        case .scenarioBasedSystemDesign: return 1800
-        case .systemDesign: return 2600
-        }
-    }
+  
     
     init(apiKey: String) {
         self.apiKey = apiKey
@@ -112,8 +108,7 @@ final class GeminiService: AIModel {
             "contents": contents,
             "generationConfig": [
                 "response_mime_type": "application/json",
-                "maxOutputTokens": Self.maxOutputTokens(for: category)
-            ]
+             ]
         ]
         
         let modelName = Self.model(for: category)
@@ -382,12 +377,10 @@ final class GeminiService: AIModel {
                 if !realTimeStreamingEnabled {
                     body["generationConfig"] = [
                         "response_mime_type": "application/json",
-                        "maxOutputTokens": Self.maxOutputTokens(for: category)
-                    ]
+                     ]
                 } else {
                     body["generationConfig"] = [
-                        "maxOutputTokens": Self.maxOutputTokens(for: category)
-                    ]
+                     ]
                 }
                 
                 PromptBuilder.printFinalPromptSent(provider: "Gemini", systemPrompt: systemPrompt, userPrompt: prompt, conversationContextCount: conversationContext.count, hasImage: imageData != nil)
