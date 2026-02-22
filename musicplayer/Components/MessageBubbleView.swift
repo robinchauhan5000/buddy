@@ -76,6 +76,7 @@ struct MessageBubbleView: View {
             .font(.system(size: DesignSystem.FontSize.md))
             .foregroundColor(DesignSystem.Colors.textPrimary)
             .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: message.role == .user ? .trailing : .leading)
             .padding(DesignSystem.Spacing.md)
             .background(
                 message.role == .user
@@ -83,7 +84,6 @@ struct MessageBubbleView: View {
                     : DesignSystem.Colors.secondaryBackground
             )
             .cornerRadius(DesignSystem.CornerRadius.lg)
-            .frame(maxWidth: 600, alignment: message.role == .user ? .trailing : .leading)
     }
     
     private func textWithImagesBubble(_ text: String, images: [Data]) -> some View {
@@ -105,12 +105,13 @@ struct MessageBubbleView: View {
                     .font(.system(size: DesignSystem.FontSize.md))
                     .foregroundColor(DesignSystem.Colors.textPrimary)
                     .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
         .padding(DesignSystem.Spacing.md)
         .background(DesignSystem.Colors.accent)
         .cornerRadius(DesignSystem.CornerRadius.lg)
-        .frame(maxWidth: 600, alignment: .trailing)
+        .frame(maxWidth: .infinity, alignment: .trailing)
     }
 
     private var userActionButtons: some View {
@@ -139,9 +140,10 @@ struct MessageBubbleView: View {
                 .font(.system(size: DesignSystem.FontSize.lg, weight: .bold))
                 .foregroundColor(DesignSystem.Colors.textPrimary)
                 .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
             
             ForEach(Array(response.sections.enumerated()), id: \.element.id) { index, section in
-                // Phase 4 mermaid_diagram: render diagram only once phase 5 has started (we have all phase 4 data).
+                // mermaid_diagram: render diagram only when we have subsequent content (full diagram data).
                 let phase4Complete = index < response.sections.count - 1
                 sectionView(section, phase4MermaidComplete: phase4Complete)
             }
@@ -160,7 +162,7 @@ struct MessageBubbleView: View {
             switch section.content {
             case .text(let text):
                 if section.type == .mermaidDiagram {
-                    // Render phase 4 Mermaid only when phase 5 has started (we have full diagram data).
+                    // Render Mermaid only when we have full diagram data (e.g. after streaming completes or next section exists).
                     if phase4MermaidComplete {
                         mermaidBlockView(mermaidCode: text)
                     } else {
@@ -192,6 +194,7 @@ struct MessageBubbleView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
     
     /// Show raw code while streaming (incomplete Mermaid would cause syntax error); render diagram when complete.
@@ -260,6 +263,7 @@ struct MessageBubbleView: View {
         Text(text)
             .font(.system(size: DesignSystem.FontSize.md))
             .foregroundColor(DesignSystem.Colors.textPrimary)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .fixedSize(horizontal: false, vertical: true)
             .textSelection(.enabled)
     }
@@ -273,11 +277,13 @@ struct MessageBubbleView: View {
                     Text(item)
                         .font(.system(size: DesignSystem.FontSize.md))
                         .foregroundColor(DesignSystem.Colors.textPrimary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .fixedSize(horizontal: false, vertical: true)
                         .textSelection(.enabled)
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
     
     private func codeBlockView(_ code: String, language: String?) -> some View {
@@ -317,7 +323,7 @@ struct MessageBubbleView: View {
             .padding(DesignSystem.Spacing.sm)
             .background(DesignSystem.Colors.background)
 
-            ScrollView(.horizontal, showsIndicators: true) {
+            ScrollView(.vertical, showsIndicators: true) {
                 Group {
                     if let ns = highlighted {
                         Text(AttributedString(ns))
@@ -327,6 +333,7 @@ struct MessageBubbleView: View {
                     }
                 }
                 .font(.system(size: DesignSystem.FontSize.sm, design: .monospaced))
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(DesignSystem.Spacing.md)
                 .textSelection(.enabled)
             }
@@ -362,12 +369,13 @@ struct MessageBubbleView: View {
     }
     
     private func errorBubble(_ error: String) -> some View {
-        HStack(spacing: DesignSystem.Spacing.sm) {
+        HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundColor(.red)
             Text(error)
                 .font(.system(size: DesignSystem.FontSize.sm))
                 .foregroundColor(DesignSystem.Colors.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.enabled)
         }
         .padding(DesignSystem.Spacing.md)

@@ -24,6 +24,11 @@ enum SectionType: String, Codable {
     case tradeOffsAndAlternatives = "trade_offs_and_alternatives"
     case failureScenariosAndRecovery = "failure_scenarios_and_recovery"
     case mermaidDiagram = "mermaid_diagram"
+    // New 7-phase system design (interview-ready)
+    case howThisCurrentApproachWorks = "how_this_current_approach_works"
+    case issuesWithCurrentImplementation = "issues_with_current_implementation"
+    case betterApproach = "better_approach"
+    case howThisBetterApproachWorks = "how_this_better_approach_works"
 
     var displayName: String {
         switch self {
@@ -70,6 +75,14 @@ enum SectionType: String, Codable {
             return "Failure Scenarios & Recovery"
         case .mermaidDiagram:
             return "Mermaid Diagram"
+        case .howThisCurrentApproachWorks:
+            return "How This Current Approach Works"
+        case .issuesWithCurrentImplementation:
+            return "Issues With Current Implementation"
+        case .betterApproach:
+            return "Better Approach"
+        case .howThisBetterApproachWorks:
+            return "How This Better Approach Works"
         }
     }
 }

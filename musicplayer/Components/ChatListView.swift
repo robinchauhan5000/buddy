@@ -22,6 +22,7 @@ struct ChatListView: View {
                         }
                     }
                 }
+                .frame(minWidth: 0, maxWidth: .infinity)
                 .onChange(of: messages.count) { _, _ in
                     if let lastMessage = messages.last {
                         withAnimation {

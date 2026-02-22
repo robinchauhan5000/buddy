@@ -255,16 +255,16 @@ Question: \(question)
 
 REQUIRED SECTIONS (ORDERED):
 1. problem_restatement
-2. functional_requirements
-3. mermaid_diagram
+2. mermaid_diagram
+3. how_this_current_approach_works
 4. list_of_services_we_will_create
-5. high_level_functional_flow
-6. detailed_service_flow
-7. scalability_strategy
+5. issues_with_current_implementation
+6. better_approach
+7. how_this_better_approach_works
 
 IMPORTANT:
-- Context must summarize decisions made in this answer
-- In a interview-ready response.
+- Context must summarize decisions made in this answer.
+- Deliver every section as an interview-ready answer at senior software developer level: clear, justified, and concise.
 """
     }
 
@@ -297,9 +297,9 @@ IMPORTANT:
         let schema = getSystemDesignPhaseSchema(phase)
         let rules = getSystemDesignPhaseRules(phase)
         let mermaidBlock: String
-        if phase >= 4, let code = mermaidDiagramCode?.trimmingCharacters(in: .whitespacesAndNewlines), !code.isEmpty {
+        if phase >= 2, let code = mermaidDiagramCode?.trimmingCharacters(in: .whitespacesAndNewlines), !code.isEmpty {
             mermaidBlock = """
-REFERENCE — MERMAID FLOWCHART FROM PHASE 3 (use this to know which services and flows were designed; your answer must be consistent with this):
+REFERENCE — MERMAID FLOWCHART FROM PHASE 2 (use this to know which services and flows were designed; your answer must be consistent with this):
 ```
 \(code)
 ```
@@ -337,7 +337,7 @@ IMPORTANT:
 """
     }
 
-    /// Extracts mermaid diagram source from phase 3 sections (for passing into phases 4–7).
+    /// Extracts mermaid diagram source from phase 2 sections (for passing into phases 3–7).
     static func extractMermaidFromSections(_ sections: [MessageSection]?) -> String? {
         guard let sections = sections else { return nil }
         guard let mermaid = sections.first(where: { $0.type == .mermaidDiagram }) else { return nil }
@@ -351,49 +351,38 @@ IMPORTANT:
     private static func getSystemDesignPhaseSchema(_ phase: Int) -> String {
         let types: [Int: String] = [
             1: "problem_restatement",
-            2: "functional_requirements",
-            3: "mermaid_diagram",
+            2: "mermaid_diagram",
+            3: "how_this_current_approach_works",
             4: "list_of_services_we_will_create",
-            5: "high_level_functional_flow",
-            6: "detailed_service_flow",
-            7: "scalability_strategy"
+            5: "issues_with_current_implementation",
+            6: "better_approach",
+            7: "how_this_better_approach_works"
         ]
         let type = types[phase] ?? "problem_restatement"
         return #"    { "type": "\#(type)", "content": ["string"] }"#
     }
 
-    // MARK: - Phase Rules — Order 1–7 matches schema
+    // MARK: - Phase Rules — Order 1–7 (senior software developer, interview-ready)
     private static func getSystemDesignPhaseRules(_ phase: Int) -> String {
         switch phase {
         case 1:
             return """
-PHASE 1 — PROBLEM RESTATEMENT
-- Explain the problem in simple, non-technical terms
-- Describe what is being built and why
-- Separate into:
-  1. Core requirements (must-have)
-  2. Optional requirements (nice-to-have)
+PHASE 1 — PROBLEM RESTATEMENT (Interview-Ready)
+- Restate the problem in 2–3 clear sentences as you would for a senior system design interview.
+- Call out functional scope (what we’re building) and success criteria (how we’ll know it works).
+- Explicitly separate: (1) Core requirements (must-have), (2) Nice-to-have / out-of-scope.
+- Use precise, non-ambiguous language; avoid jargon unless you define it.
 """
         case 2:
             return """
-PHASE 2 — FUNCTIONAL REQUIREMENTS
-- List user-facing requirements
-- Describe what the system must do
-- Separate into:
-  1. Core requirements (must-have)
-  2. Optional requirements (nice-to-have)
-"""
-        case 3:
-            return """
-PHASE 3 — MERMAID FLOWCHART
+PHASE 2 — MERMAID FLOWCHART (Interview-Ready)
 
-Generate a Mermaid flowchart for the system design described above.
-Must Follow These Rules:
-- Assume a 45–60 minute system design interview.
-- Focus on core functionality first.
-- Design only the minimum viable system as per requirment
-- Mention optional improvements separately, but do NOT include them in the main diagram.
+Produce a Mermaid flowchart for the current design. Interview-style: minimal, correct, and renderable.
 
+RULES:
+- Assume a 45–60 minute system design interview; focus on core flows only.
+- Design the minimum viable system that satisfies the stated requirements.
+- Call out optional improvements in text only; do NOT put them in the main diagram.
 
 CRITICAL RULES (follow strictly):
 Provide syntax error free Mermaid code.
@@ -431,38 +420,49 @@ Output inside section:
 <<SECTION:type=mermaid_diagram>>
 <mermaid code only>
 <<END_SECTION>>
-
+"""
+        case 3:
+            return """
+PHASE 3 — HOW THIS CURRENT APPROACH WORKS (Interview-Ready)
+- Explain the current design in 4–6 concise bullets as you would to an interviewer.
+- Cover: main components, request/event flow, and where data lives.
+- Use clear cause-and-effect (“When X happens, Y does Z”) so a senior engineer can follow without the diagram.
+- Mention one clear trade-off or constraint of this approach (e.g. latency, consistency, coupling).
 """
         case 4:
             return """
-PHASE 4 — LIST OF SERVICES WE WILL CREATE
-- In a interview-ready response.
-- List services
+PHASE 4 — LIST OF SERVICES WE WILL CREATE (Interview-Ready)
+- List each service/component with a one-line responsibility (e.g. “API Gateway: auth, rate limit, route”).
+- Order by dependency or flow (e.g. client-facing first, then backend, then data).
+- Use names an interviewer would recognize; avoid internal-only jargon unless you briefly define it.
+- Keep the list minimal: only what’s needed for the stated scope.
 """
         case 5:
             return """
-PHASE 5 — HIGH-LEVEL FUNCTIONAL FLOW
-- In a interview-ready response.
-- Step-by-step logical flow
-- Technology-agnostic
+PHASE 5 — ISSUES and ANSWERS WITH CURRENT IMPLEMENTATION (Interview-Ready)
+- List 3–5 concrete interview-ready issues and ready-interviews answers: scalability, reliability, operability, or consistency.
+- first explain the issue then explain the answer to the issue.
+- For each: what breaks, under what conditions, and why it matters for the business or SLO.
+- Use senior-level language: bottlenecks, single points of failure, tight coupling, eventual consistency, etc.
+- Be specific (e.g. “DB becomes bottleneck at 10k RPS”) so the next phase can address them.
 """
         case 6:
             return """
-PHASE 6 — DETAILED SERVICE FLOW
-- In a interview-ready response.
-- Service interactions
-- Error handling
-- Sync vs async
+PHASE 6 — BETTER APPROACH (Interview-Ready)
+- Propose a better design that addresses the issues from Phase 5.
+- State the main architectural change in one sentence (e.g. “Introduce event bus and async workers”).
+- Justify why this is better: which trade-offs improve (e.g. scalability, decoupling) and what we give up (e.g. complexity, eventual consistency).
+- Compare briefly with one alternative you did not choose and why (senior-level reasoning).
 """
         case 7:
             return """
-PHASE 7 — SCALABILITY STRATEGY
-- In a interview-ready response.
-- Bottlenecks
-- Horizontal and vertical scaling
+PHASE 7 — HOW THIS BETTER APPROACH WORKS (Interview-Ready)
+- Walk through the improved design in 4–6 bullets: components, flow, and data ownership.
+- Explain how the improvements from Phase 6 show up in the new flow (e.g. “Events are durable, so we can replay on failure”).
+- Call out one remaining trade-off or future improvement so the answer sounds complete and interview-ready.
 """
         default:
-            return "Explain clearly and concisely."
+            return "Explain clearly and concisely in an interview-ready way."
         }
     }
 

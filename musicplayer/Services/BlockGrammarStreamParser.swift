@@ -331,6 +331,12 @@ final class BlockGrammarStreamParser {
         case "details": return .details
         case "code": return .code
         case "mermaid_diagram": return .mermaidDiagram
+        case "problem_restatement": return .problemRestatement
+        case "how_this_current_approach_works": return .howThisCurrentApproachWorks
+        case "list_of_services_we_will_create": return .listOfServicesWeWillCreate
+        case "issues_with_current_implementation": return .issuesWithCurrentImplementation
+        case "better_approach": return .betterApproach
+        case "how_this_better_approach_works": return .howThisBetterApproachWorks
         default: return nil
         }
     }
