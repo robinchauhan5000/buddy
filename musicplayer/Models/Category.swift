@@ -14,7 +14,7 @@ enum Category: String, CaseIterable, Identifiable {
     case trueFalse = "True/False interview"
     case systemDesign = "System Design interview"
     case scenarioBasedSystemDesign = "Scenario-Based System Design interview"
-    case technical = "Technical Discussion interview"
+    case devops = "DevOps interview"
     case coding = "Coding Round interview"
     case outputType = "Output Type interview"
     case mcq = "MCQ interview"

@@ -168,9 +168,9 @@ struct HeaderView: View {
                 Spacer()
             }
 
-            if isMicrophoneActive {
+            if isMicrophoneActive || isChromeSoundActive {
                 HStack(alignment: .top, spacing: DesignSystem.Spacing.sm) {
-                    Image(systemName: "mic.fill")
+                    Image(systemName: isChromeSoundActive ? "speaker.wave.2.fill" : "mic.fill")
                         .font(.system(size: DesignSystem.FontSize.sm))
                         .foregroundColor(DesignSystem.Colors.accent)
                     Text(microphoneCaptionText.isEmpty ? "Listening…" : microphoneCaptionText)

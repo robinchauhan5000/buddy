@@ -126,6 +126,8 @@ class InterviewCopilotViewModel: ObservableObject {
     private func startChromeSoundAfterAuthorization() async {
         guard speechRecognitionService.isAuthorized else { return }
 
+        await MainActor.run { microphoneCaptionText = "" }
+
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
         chromeRecognitionRequest = request
@@ -141,10 +143,13 @@ class InterviewCopilotViewModel: ObservableObject {
 
         chromeRecognitionTask = chromeSpeechRecognizer?.recognitionTask(with: request) { [weak self] result, error in
             guard let self else { return }
-            if let result, result.isFinal {
+            if let result {
                 let text = result.bestTranscription.formattedString
                 Task { @MainActor in
-                    self.finishChromeSound(recognizedText: text)
+                    self.microphoneCaptionText = text
+                    if result.isFinal {
+                        self.finishChromeSound(recognizedText: text)
+                    }
                 }
             }
             if error != nil {
@@ -177,6 +182,7 @@ class InterviewCopilotViewModel: ObservableObject {
                 chromeRecognitionTask = nil
                 chromeRecognitionRequest = nil
                 isChromeSoundActive = false
+                microphoneCaptionText = ""
             }
         }
     }
@@ -186,6 +192,7 @@ class InterviewCopilotViewModel: ObservableObject {
         chromeRecognitionRequest = nil
         isChromeSoundActive = false
         chromeCaptureManager.onAudioBuffer = nil
+        microphoneCaptionText = ""
         Task { await chromeCaptureManager.stop() }
         if !recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             onSpeechRecognized?(recognizedText)

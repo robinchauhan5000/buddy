@@ -10,14 +10,14 @@ final class OpenAIService: AIModel {
         case .detailedAnswer: return "gpt-5.1"
         case .shortAnswers: return "gpt-5.1"
         case .quickAnswers: return "gpt-5.1"
-        case .trueFalse: return "gpt-5-mini"
+        case .trueFalse: return "gpt-5.1"
         case .systemDesign: return "gpt-5.2"
-        case .scenarioBasedSystemDesign: return "gpt-5-mini"
-        case .technical: return "gpt-5-mini"
+        case .scenarioBasedSystemDesign: return "gpt-5.1"
+        case .devops: return "gpt-5.1"
         case .coding: return "gpt-5.2"
         case .outputType: return "gpt-5.1"
         case .mcq: return "gpt-5.1"
-        case .codeCorrection: return "gpt-5.1"
+        case .codeCorrection: return "gpt-5.2"
         case .optimizationCode: return "gpt-5.1"
         }
     }

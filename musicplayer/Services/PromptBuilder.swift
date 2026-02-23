@@ -115,6 +115,7 @@ TONE:
 ROLE:
 You are a senior fullstack engineer answering technical interview questions.
 Strict - interview-ready answer
+Strict - acronyms should in full form it should be inside () for example ip (internet protocol) address
 OUTPUT CONTRACT:
 - Strictly follow the streaming rules. <<SECTION:type=short_answer>> <<>>.
 - Streaming Block Protocol only.
@@ -151,7 +152,7 @@ REQUESTED LANGUAGE FOR CODE: \(language.rawValue) (use language=\(language.codeI
             return commonStreamingFormatRules("""
             CATEGORY RULES (True/False):
             - short_answer: interview-ready answer, ONLY "True" or "False".
-            - details: Brief justification explaining why the answer is correct.
+            - details: interview-ready answer, Brief justification explaining why the answer is correct.
             - code: include only when required by question, else minimal valid placeholder in \(language.rawValue).
             """)
         case .coding:
@@ -170,12 +171,12 @@ REQUESTED LANGUAGE FOR CODE: \(language.rawValue) (use language=\(language.codeI
             - details: how solution works, key trade-offs, and pitfalls.
             - code: complete idiomatic \(language.rawValue) implementation.
             """)
-        case .technical:
+        case .devops:
             return commonStreamingFormatRules("""
-            CATEGORY RULES (Technical Deep Dive):
-            - short_answer: Provide a direct, interview-ready answer
-            - details: why/how, trade-offs, and best practices.
-            - code: concise pattern/example in \(language.rawValue) when useful.
+            CATEGORY RULES (DevOps Interview):
+            - short_answer: Provide a direct, interview-ready answer (CI/CD, containers, Kubernetes, infrastructure, monitoring, observability, or related DevOps topic).
+            - details: Explain why/how, trade-offs, best practices, and how it fits in a production pipeline or infrastructure.
+            - code: concise example in \(language.rawValue) when useful (e.g. Dockerfile, pipeline YAML, script, or config snippet).
             """)
         case .systemDesign:
             return commonStreamingFormatRules("""
@@ -234,8 +235,12 @@ SECTION ORDER:
 
 User input may come from speech-to-text and contain incorrect technical spellings
 or phonetic substitutions.
-Example: - "Cuban eight", "Cuban and", "Kubernate" → Kubernetes
+Example: - "Cuban eight", "Cuates", "Cuban and", "Kubernate" → Kubernetes
          - "Go routines", "Go routine" → goroutines
+         - "A PAN", "IPM" -> "IPAM"
+         - "DHSP", "DHS" -> "DHCP" (Dynamic Host Configuration Protocol)
+         - "trash loop back ", "loop back" -> "CrashLoopBackOff"
+         - "geml", "gem" -> "yaml"  
 
 CONTEXT FORMAT (keep short):
 conversation_summary:

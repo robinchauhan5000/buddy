@@ -25,7 +25,7 @@ final class GeminiService: AIModel {
             return "gemini-3-pro-preview"
         case .scenarioBasedSystemDesign:
             return "gemini-2.5-pro"
-        case .technical:
+        case .devops:
             return "gemini-2.5-pro"
         case .coding:
             return "gemini-3-pro-preview"
