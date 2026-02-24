@@ -89,6 +89,13 @@ final class ScreenshotService: ObservableObject {
         capturedScreenshots.removeAll()
     }
     
+    /// Restore screenshots from existing image data (e.g. when resending or editing a message that had images).
+    func restoreScreenshots(from imageDataArray: [Data]) {
+        capturedScreenshots = imageDataArray.map { data in
+            ScreenshotData(id: UUID(), imageData: data, timestamp: Date())
+        }
+    }
+    
     /// Convert CGImage to PNG Data
     private func convertCGImageToPNG(_ cgImage: CGImage) -> Data? {
         let nsImage = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))

@@ -92,15 +92,29 @@ final class ChatViewModel: ObservableObject {
     }
 
     func resendMessage(_ message: ChatMessage) {
-        guard let text = messagePlainTextIfUser(message) else { return }
-        currentInput = text
+        guard let payload = messageTextAndImagesIfUser(message) else { return }
+        currentInput = payload.text
+        recordingBaseText = payload.text
+        if !payload.images.isEmpty {
+            screenshotService.restoreScreenshots(from: payload.images)
+            // Sync view model so sendMessage() sees screenshots immediately (Combine may not have fired yet).
+            capturedScreenshots = payload.images.map { ScreenshotData(id: UUID(), imageData: $0, timestamp: Date()) }
+        } else {
+            screenshotService.clearAllScreenshots()
+            capturedScreenshots = []
+        }
         sendMessage()
     }
 
     func editMessage(_ message: ChatMessage) {
-        guard let text = messagePlainTextIfUser(message) else { return }
-        currentInput = text
-        recordingBaseText = text
+        guard let payload = messageTextAndImagesIfUser(message) else { return }
+        currentInput = payload.text
+        recordingBaseText = payload.text
+        if !payload.images.isEmpty {
+            screenshotService.restoreScreenshots(from: payload.images)
+        } else {
+            screenshotService.clearAllScreenshots()
+        }
     }
     
     func clearChat() {
@@ -532,6 +546,19 @@ final class ChatViewModel: ObservableObject {
             return text
         case .textWithImages(let text, _):
             return text
+        default:
+            return nil
+        }
+    }
+
+    /// Returns (text, imageDataArray) for user messages. For text-only messages, imageDataArray is empty.
+    private func messageTextAndImagesIfUser(_ message: ChatMessage) -> (text: String, images: [Data])? {
+        guard message.role == .user else { return nil }
+        switch message.content {
+        case .text(let text):
+            return (text, [])
+        case .textWithImages(let text, let imageDataArray):
+            return (text, imageDataArray)
         default:
             return nil
         }
