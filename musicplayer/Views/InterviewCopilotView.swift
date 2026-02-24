@@ -68,7 +68,8 @@ struct InterviewCopilotView: View {
         .sheet(isPresented: $viewModel.showSettings) {
             SettingsView(
                 viewModel: chatViewModel,
-                isScreenShareHidden: viewModel.isScreenShareHidden
+                isScreenShareHidden: viewModel.isScreenShareHidden,
+                onWindowDidAppear: { viewModel.reapplyWindowSharingType() }
             )
         }
         .confirmationDialog(

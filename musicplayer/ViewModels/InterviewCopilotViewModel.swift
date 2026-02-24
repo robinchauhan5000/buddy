@@ -207,7 +207,12 @@ class InterviewCopilotViewModel: ObservableObject {
         isScreenShareHidden = hidden
         updateWindowSharingType(hidden: hidden)
     }
-    
+
+    /// Re-applies current screen-share visibility to all windows (e.g. after a new window like the settings sheet is created).
+    func reapplyWindowSharingType() {
+        updateWindowSharingType(hidden: isScreenShareHidden)
+    }
+
     func shareScreen() {
         showSettings = true
     }

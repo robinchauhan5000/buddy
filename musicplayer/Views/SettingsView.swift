@@ -14,7 +14,9 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var viewModel: ChatViewModel
     let isScreenShareHidden: Bool
-    
+    /// Called when the settings window appears so the host can exclude it from screen sharing if needed.
+    var onWindowDidAppear: (() -> Void)? = nil
+
     @State private var openAIKey: String = ""
     @State private var claudeKey: String = ""
     @State private var grokKey: String = ""
@@ -168,6 +170,7 @@ struct SettingsView: View {
             loadAPIKeys()
             realTimeStreamingEnabled = AppConfig.realTimeStreamingEnabled
             updateSharingType(isHidden: isScreenShareHidden)
+            onWindowDidAppear?()
         }
         .onChange(of: isScreenShareHidden) { _, newValue in
             updateSharingType(isHidden: newValue)
