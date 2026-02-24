@@ -1,5 +1,7 @@
 import SwiftUI
 
+/// Shared abstraction for the chat input UI (mic, clear, screenshot, text field, send).
+/// Use `AIBotChatInputView` for AI bot (send → API) or `WebviewChatInputView` for webview (send → inject into page input).
 struct ChatInputView: View {
     @Binding var text: String
     let isProcessing: Bool

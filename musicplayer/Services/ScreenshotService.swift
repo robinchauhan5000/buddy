@@ -78,6 +78,31 @@ final class ScreenshotService: ObservableObject {
         
         capturedScreenshots.append(screenshot)
     }
+
+    /// Capture a screenshot and return it as NSImage (e.g. for sending to webview/ChatGPT).
+    /// Does not add to capturedScreenshots.
+    func captureScreenshotReturningImage() async throws -> NSImage {
+        let content: SCShareableContent
+        do {
+            content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+        } catch {
+            requestScreenRecordingPermissionIfNeeded()
+            throw ScreenshotError.permissionDenied
+        }
+        guard let display = content.displays.first else {
+            requestScreenRecordingPermissionIfNeeded()
+            if !CGPreflightScreenCaptureAccess() { throw ScreenshotError.permissionDenied }
+            throw ScreenshotError.noDisplayFound
+        }
+        let filter = SCContentFilter(display: display, excludingWindows: [])
+        let config = SCStreamConfiguration()
+        config.width = Int(display.width)
+        config.height = Int(display.height)
+        config.capturesAudio = false
+        config.showsCursor = true
+        let cgImage = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
+        return NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
+    }
     
     /// Remove a screenshot from the collection
     func removeScreenshot(_ screenshot: ScreenshotData) {

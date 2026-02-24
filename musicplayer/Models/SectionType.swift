@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 enum SectionType: String, Codable {
     // Basic section types

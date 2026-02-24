@@ -160,6 +160,11 @@ final class ChatViewModel: ObservableObject {
         screenshotService.removeScreenshot(screenshot)
     }
 
+    /// Captures a screenshot and returns it as NSImage (e.g. for sending to ChatGPT in webview). Does not add to chat.
+    func captureScreenshotForWebView() async -> NSImage? {
+        try? await screenshotService.captureScreenshotReturningImage()
+    }
+
     func abortCurrentRequest() {
         streamingTask?.cancel()
         streamingTask = nil

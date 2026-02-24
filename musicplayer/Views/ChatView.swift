@@ -48,15 +48,7 @@ struct ChatView: View {
                 .padding(.horizontal, DesignSystem.Spacing.xl)
             }
             
-            ChatInputView(
-                text: $viewModel.currentInput,
-                isProcessing: viewModel.isProcessing,
-                isRecording: viewModel.isRecording,
-                onSend: viewModel.sendMessage,
-                onClear: viewModel.clearInput,
-                onRecord: viewModel.toggleSpeechInput,
-                onCaptureScreenshot: viewModel.captureScreenshot
-            )
+            AIBotChatInputView(chatViewModel: viewModel)
         }
         .background(DesignSystem.Colors.background)
     }

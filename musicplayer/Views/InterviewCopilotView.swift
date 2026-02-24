@@ -18,7 +18,11 @@ struct InterviewCopilotView: View {
     @State private var isShiftKeyPressed = false
     @State private var showChatGPTWebView = false
     @State private var isCategoryDropdownOpen = false
-    
+    @State private var webViewLoading = false
+    @State private var webViewCanGoBack = false
+    @State private var webViewCanGoForward = false
+    @StateObject private var webViewStore = WebViewStore()
+
     private static let chatGPTURL = URL(string: "https://chatgpt.com/")!
     
     var body: some View {
@@ -53,8 +57,35 @@ struct InterviewCopilotView: View {
             )
             
             if showChatGPTWebView {
-                URLWebView(url: Self.chatGPTURL)
+                VStack(spacing: 0) {
+                    WebViewWrapper(
+                        url: .constant(Self.chatGPTURL),
+                        isLoading: $webViewLoading,
+                        canGoBack: $webViewCanGoBack,
+                        canGoForward: $webViewCanGoForward,
+                        webViewStore: webViewStore,
+                        onChatGPTReady: nil
+                    )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    WebviewChatInputView(
+                        chatViewModel: chatViewModel,
+                        webViewStore: webViewStore,
+                        onSendToWebView: { },
+                        onCaptureScreenshotForWebView: {
+                            // When screen capture button is clicked, capture and add image to ChatGPT (same as reference)
+                            Task {
+                                if let image = await chatViewModel.captureScreenshotForWebView() {
+                                    await MainActor.run {
+                                        webViewStore.sendImageToChatGPT(image)
+                                    }
+                                }
+                            }
+                        }
+                    )
+                }
+                .onChange(of: chatViewModel.isRecording) { _, isRecording in
+                    if isRecording { webViewStore.duckAudio() } else { webViewStore.restoreAudio() }
+                }
             } else {
                 SessionInfoView(
                     chatViewModel: chatViewModel
@@ -149,15 +180,42 @@ private extension InterviewCopilotView {
         
         if isCommandOnly && !isCommandKeyPressed {
             isCommandKeyPressed = true
-            viewModel.startMicrophoneFromShortcut()
+            if showChatGPTWebView {
+                if !chatViewModel.isRecording {
+                    chatViewModel.toggleSpeechInput()
+                }
+            } else {
+                viewModel.startMicrophoneFromShortcut()
+            }
         } else if !isCommandOnly && isCommandKeyPressed {
             isCommandKeyPressed = false
-            viewModel.stopMicrophoneFromShortcut()
+            if showChatGPTWebView {
+                if chatViewModel.isRecording {
+                    chatViewModel.toggleSpeechInput()
+                    let userInput = chatViewModel.currentInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !userInput.isEmpty {
+                        chatViewModel.clearInput()
+                        let prompt = WebViewPromptBuilder.buildPromptForWebView(
+                            userInput: userInput,
+                            category: chatViewModel.selectedCategory,
+                            language: chatViewModel.selectedLanguage,
+                            useInterviewCounterQuestion: chatViewModel.useInterviewCounterQuestionPrompt
+                        )
+                        webViewStore.sendMessageToChatGPT(prompt)
+                    }
+                }
+            } else {
+                viewModel.stopMicrophoneFromShortcut()
+            }
         }
 
         if isShiftOnly && !isShiftKeyPressed {
             isShiftKeyPressed = true
-            chatViewModel.abortCurrentRequest()
+            if showChatGPTWebView {
+                webViewStore.stopStreamingInWebView()
+            } else {
+                chatViewModel.abortCurrentRequest()
+            }
         } else if !isShiftOnly && isShiftKeyPressed {
             isShiftKeyPressed = false
         }
