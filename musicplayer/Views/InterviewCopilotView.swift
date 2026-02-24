@@ -17,6 +17,7 @@ struct InterviewCopilotView: View {
     @State private var isCommandKeyPressed = false
     @State private var isShiftKeyPressed = false
     @State private var showChatGPTWebView = false
+    @State private var isCategoryDropdownOpen = false
     
     private static let chatGPTURL = URL(string: "https://chatgpt.com/")!
     
@@ -47,7 +48,8 @@ struct InterviewCopilotView: View {
                 isMicrophoneActive: viewModel.isMicrophoneActive,
                 microphoneCaptionText: viewModel.microphoneCaptionText,
                 isChromeSoundActive: viewModel.isChromeSoundActive,
-                isScreenShareHidden: viewModel.isScreenShareHidden
+                isScreenShareHidden: viewModel.isScreenShareHidden,
+                isCategoryDropdownOpen: $isCategoryDropdownOpen
             )
             
             if showChatGPTWebView {

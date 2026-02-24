@@ -27,6 +27,8 @@ struct HeaderView: View {
     var microphoneCaptionText: String = ""
     var isChromeSoundActive: Bool = false
     var isScreenShareHidden: Bool = true
+    /// When set, header zIndex is raised while the category dropdown is open so it appears above main content.
+    var isCategoryDropdownOpen: Binding<Bool>? = nil
     
     var body: some View {
         VStack(spacing: DesignSystem.Spacing.md) {
@@ -120,7 +122,10 @@ struct HeaderView: View {
                         .font(.system(size: DesignSystem.FontSize.sm, weight: .medium))
                         .foregroundColor(DesignSystem.Colors.textSecondary)
                     
-                    CategoryPicker(selectedCategory: $selectedCategory)
+                    CategoryPicker(
+                        selectedCategory: $selectedCategory,
+                        onDropdownPresentedChange: isCategoryDropdownOpen.map { binding in { binding.wrappedValue = $0 } }
+                    )
                         .disabled(useInterviewCounterQuestionPrompt)
                         .opacity(useInterviewCounterQuestionPrompt ? 0.6 : 1)
                 }
@@ -187,6 +192,7 @@ struct HeaderView: View {
         .padding(.horizontal, DesignSystem.Spacing.xl)
         .padding(.vertical, DesignSystem.Spacing.md)
         .background(DesignSystem.Colors.secondaryBackground)
+        .zIndex((isCategoryDropdownOpen?.wrappedValue ?? false) ? 1000 : 0)
     }
 }
 

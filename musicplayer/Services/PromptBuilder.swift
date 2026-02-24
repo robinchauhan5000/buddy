@@ -158,9 +158,18 @@ REQUESTED LANGUAGE FOR CODE: \(language.rawValue) (use language=\(language.codeI
         case .coding:
             return commonStreamingFormatRules("""
             CATEGORY RULES (Coding Interview):
-            - code: complete production-ready \(language.rawValue) solution.
+            - code:
+                    Provide a minimal, clean, interview-ready solution in \(language.rawValue).
+                    Strictly solve only what is asked in the question.
+                    Do NOT add extra input handling, CLI flags, buffered I/O (e.g., bufio), file handling, logging, or production optimizations unless explicitly required in the problem.
+                    Do NOT assume stdin/stdout interaction unless mentioned.
+                    Hardcode sample values if input method is not specified.
+                    Focus only on core logic and required concurrency/data-structure techniques.
+                    Avoid over-engineering.
             - short_answer: interview-ready answer.
-            - details: Approach to solve the problem in simple words, clearly mentioning the technique used (e.g., Sliding Window, HashMap, Two Pointers, Dynamic Programming, etc.).
+            - details: interview-ready answer, Approach to solve the problem in simple words, clearly mentioning the technique used (e.g., Sliding Window, HashMap, Two Pointers, Dynamic Programming, etc.).
+            - details: in layman language,interview-ready answer, Explain how this technique works in detail.
+            - details: interview-ready answer, explain with examples
             - details: Why this is optimal solution and not other approaches.
             - details: Explain how the solution works, key trade-offs, and pitfalls.
             """)
@@ -189,13 +198,15 @@ REQUESTED LANGUAGE FOR CODE: \(language.rawValue) (use language=\(language.codeI
             return commonStreamingFormatRules("""
             CATEGORY RULES (Scenario-Based Interview Question):
             - short_answer: interview-ready answer, direct plan for the given scenario.
-            - code: complete production-ready \(language.rawValue) solution. (only if required; otherwise minimal placeholder.)
+            - code: complete interview-ready \(language.rawValue) solution. (only if required; otherwise minimal placeholder.)
             """)
         case .outputType:
             return commonStreamingFormatRules("""
             CATEGORY RULES (Output Type):
             - short_answer: exact output value/text.
-            - details: interview-ready answer, Brief justification explaining why the answer is correct.
+            - details: interview-ready answer, why getting this output
+            - details: interview-ready answer, concept behind the output
+            - details: interview-ready answer, explain with examples
             """)
         case .mcq:
             return commonStreamingFormatRules("""
@@ -207,9 +218,12 @@ REQUESTED LANGUAGE FOR CODE: \(language.rawValue) (use language=\(language.codeI
             return commonStreamingFormatRules("""
             CATEGORY RULES (Code Correction):
             - Input: code or screenshot of code that may be wrong or incorrect. Find the issue and provide the corrected solution.
-            - short_answer: interview-ready summary — what was wrong and the fix in 1–2 lines.
+            - short_answer: interview-ready summary — what was wrong and the fix.
+            - details: interview-ready answer, issues with the code.
+            - details: interview-ready answer, pinpoint which line of code is causing the issue and why it is causing the issue
+            - details: interview-ready answer, solution to the issue
             - details: (1) Clear explanation of what was wrong in the original code (bug, logic error, style/security issue, etc.). (2) Explanation of why the corrected solution is correct and how it fixes the issue.
-            - code: complete corrected \(language.rawValue) code (production-ready, same language as input when identifiable).
+            - code: complete corrected \(language.rawValue) code (interview-ready, same language as input when identifiable).
             """)
         case .optimizationCode:
             return commonStreamingFormatRules("""
@@ -217,7 +231,7 @@ REQUESTED LANGUAGE FOR CODE: \(language.rawValue) (use language=\(language.codeI
             - Input: code or screenshot of code that may need optimization, or where the current implementation could be done in a better way (senior-developer perspective).
             - short_answer: interview-ready summary — current approach vs better approach.
             - details: Current approach: explain what the code does and how it works. (2) What is wrong with it: inefficiencies, readability, maintainability, performance, edge cases, or best-practice gaps. (3) Better approach: explain the optimized strategy and why it is superior (complexity, clarity, idioms, patterns).
-            - code: complete optimized \(language.rawValue) code (production-ready, idiomatic; same language as input when identifiable).
+            - code: complete optimized \(language.rawValue) code (interview-ready, idiomatic; same language as input when identifiable).
             """)
         }
     }
