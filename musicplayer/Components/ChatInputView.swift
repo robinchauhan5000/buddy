@@ -1,4 +1,86 @@
 import SwiftUI
+import AppKit
+
+// MARK: - Auto-scrolling text view (macOS)
+
+private struct AutoScrollTextView: NSViewRepresentable {
+    @Binding var text: String
+    var font: NSFont
+    var textColor: NSColor
+    var isEnabled: Bool
+    var minHeight: CGFloat
+    var maxHeight: CGFloat
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.borderType = .noBorder
+        scrollView.drawsBackground = false
+
+        let textView = NSTextView()
+        textView.font = font
+        textView.textColor = textColor
+        textView.drawsBackground = false
+        textView.isRichText = false
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.textContainer?.containerSize = NSSize(width: scrollView.contentSize.width, height: .greatestFiniteMagnitude)
+        textView.textContainer?.widthTracksTextView = true
+        textView.delegate = context.coordinator
+        textView.string = text
+
+        scrollView.documentView = textView
+        context.coordinator.textView = textView
+        context.coordinator.scrollView = scrollView
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard let textView = scrollView.documentView as? NSTextView else { return }
+        let contentWidth = scrollView.contentSize.width
+        if contentWidth > 0, let container = textView.textContainer {
+            container.containerSize = NSSize(width: contentWidth, height: CGFloat.greatestFiniteMagnitude)
+        }
+        if textView.string != text {
+            textView.string = text
+        }
+        textView.isEditable = isEnabled
+        textView.isSelectable = isEnabled
+        context.coordinator.scrollToSelection()
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    class Coordinator: NSObject, NSTextViewDelegate {
+        var parent: AutoScrollTextView
+        weak var textView: NSTextView?
+        weak var scrollView: NSScrollView?
+
+        init(_ parent: AutoScrollTextView) {
+            self.parent = parent
+        }
+
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else { return }
+            parent.text = textView.string
+            scrollToSelection()
+        }
+
+        func scrollToSelection() {
+            guard let textView = textView else { return }
+            DispatchQueue.main.async {
+                let range = textView.selectedRange()
+                if range.location != NSNotFound {
+                    textView.scrollRangeToVisible(range)
+                }
+            }
+        }
+    }
+}
 
 /// Shared abstraction for the chat input UI (mic, clear, screenshot, text field, send).
 /// Use `AIBotChatInputView` for AI bot (send → API) or `WebviewChatInputView` for webview (send → inject into page input).
@@ -50,17 +132,24 @@ struct ChatInputView: View {
             .disabled(isProcessing)
             
             HStack(alignment: .bottom, spacing: DesignSystem.Spacing.md) {
-                TextField("Ask your interview question...", text: $text, axis: .vertical)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: DesignSystem.FontSize.md))
-                    .foregroundColor(DesignSystem.Colors.textPrimary)
-                    .lineLimit(1...10)
-                    .disabled(isProcessing)
-                    .onSubmit {
-                        if !text.isEmpty && !isProcessing {
-                            onSend()
-                        }
+                ZStack(alignment: .topLeading) {
+                    if text.isEmpty {
+                        Text("Ask your interview question...")
+                            .font(.system(size: DesignSystem.FontSize.md))
+                            .foregroundColor(DesignSystem.Colors.textSecondary.opacity(0.7))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 8)
                     }
+                    AutoScrollTextView(
+                        text: $text,
+                        font: .systemFont(ofSize: DesignSystem.FontSize.md),
+                        textColor: NSColor.white,
+                        isEnabled: !isProcessing,
+                        minHeight: 22,
+                        maxHeight: 70
+                    )
+                    .frame(minHeight: 22, maxHeight: 70)
+                }
             }
             .padding(.horizontal, DesignSystem.Spacing.lg)
             .padding(.vertical, DesignSystem.Spacing.md)

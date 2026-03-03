@@ -140,21 +140,21 @@ REQUESTED LANGUAGE FOR CODE: \(language.rawValue) (use language=\(language.codeI
             - short_answer: interview-ready answer
             - details: max 5 bullets with reasoning and trade-offs.
             - code: minimal valid placeholder in \(language.rawValue).
-            """)
+            """, category: category)
         case .quickAnswers:
             return commonStreamingFormatRules("""
             CATEGORY RULES (Quick Answers):
             - short_answer: interview-ready answer.
             - details: Brief justification explaining why the answer is correct.
             - No code is required for this category.
-            """)
+            """, category: category)
         case .trueFalse:
             return commonStreamingFormatRules("""
             CATEGORY RULES (True/False):
             - short_answer: interview-ready answer, ONLY "True" or "False".
             - details: interview-ready answer, Brief justification explaining why the answer is correct.
             - code: include only when required by question, else minimal valid placeholder in \(language.rawValue).
-            """)
+            """, category: category)
         case .coding:
             return commonStreamingFormatRules("""
             CATEGORY RULES (Coding Interview):
@@ -170,50 +170,53 @@ REQUESTED LANGUAGE FOR CODE: \(language.rawValue) (use language=\(language.codeI
             - details: interview-ready answer, Approach to solve the problem in simple words, clearly mentioning the technique used (e.g., Sliding Window, HashMap, Two Pointers, Dynamic Programming, etc.).
             - details: in layman language,interview-ready answer, Explain how this technique works in detail.
             - details: interview-ready answer, explain with examples
+            - details: interview-ready answer, explain code step by step with code snippet and explain the logic behind the code with comments.
             - details: Why this is optimal solution and not other approaches.
-            - details: Explain how the solution works, key trade-offs, and pitfalls.
-            """)
+            - details: Explain how the solution works in layman language, key trade-offs, and pitfalls.
+            """, category: category)
         case .detailedAnswer:
             return commonStreamingFormatRules("""
             CATEGORY RULES (Detailed Answer):
             - short_answer: Provide a direct, interview-ready answer
             - details: how solution works, key trade-offs, and pitfalls.
             - code: complete idiomatic \(language.rawValue) implementation.
-            """)
+            """, category: category)
         case .devops:
             return commonStreamingFormatRules("""
             CATEGORY RULES (DevOps Interview):
             - short_answer: Provide a direct, interview-ready answer (CI/CD, containers, Kubernetes, infrastructure, monitoring, observability, or related DevOps topic).
             - details: Explain why/how, trade-offs, best practices, and how it fits in a production pipeline or infrastructure.
             - code: concise example in \(language.rawValue) when useful (e.g. Dockerfile, pipeline YAML, script, or config snippet).
-            """)
+            """, category: category)
         case .systemDesign:
             return commonStreamingFormatRules("""
             CATEGORY RULES (System Design):
             - short_answer: interview-ready answer, high-level architecture in 2-4 lines.
             - details: requirements, components, bottlenecks, and trade-offs.
             - code: only concrete snippet if essential; otherwise minimal placeholder.
-            """)
+            """, category: category)
         case .scenarioBasedSystemDesign:
             return commonStreamingFormatRules("""
             CATEGORY RULES (Scenario-Based Interview Question):
             - short_answer: interview-ready answer, direct plan for the given scenario.
             - code: complete interview-ready \(language.rawValue) solution. (only if required; otherwise minimal placeholder.)
-            """)
+            """, category: category)
         case .outputType:
             return commonStreamingFormatRules("""
             CATEGORY RULES (Output Type):
             - short_answer: exact output value/text.
             - details: interview-ready answer, why getting this output
             - details: interview-ready answer, concept behind the output
+            - details: interview-ready answer, explain the logic behind the output
             - details: interview-ready answer, explain with examples
-            """)
+            """, category: category)
         case .mcq:
             return commonStreamingFormatRules("""
             CATEGORY RULES (MCQ):
             - short_answer: interview-ready answer, clearly state one correct option.
+            - details: interview-ready answer, explain the logic behind the output
             - details: interview-ready answer concise reasoning and why alternatives fail (if helpful).
-            """)
+            """, category: category)
         case .codeCorrection:
             return commonStreamingFormatRules("""
             CATEGORY RULES (Code Correction):
@@ -222,9 +225,10 @@ REQUESTED LANGUAGE FOR CODE: \(language.rawValue) (use language=\(language.codeI
             - details: interview-ready answer, issues with the code.
             - details: interview-ready answer, pinpoint which line of code is causing the issue and why it is causing the issue
             - details: interview-ready answer, solution to the issue
+            - details: interview-ready answer, explain the logic behind the solution
             - details: (1) Clear explanation of what was wrong in the original code (bug, logic error, style/security issue, etc.). (2) Explanation of why the corrected solution is correct and how it fixes the issue.
             - code: complete corrected \(language.rawValue) code (interview-ready, same language as input when identifiable).
-            """)
+            """, category: category)
         case .optimizationCode:
             return commonStreamingFormatRules("""
             CATEGORY RULES (Optimization Code):
@@ -232,18 +236,37 @@ REQUESTED LANGUAGE FOR CODE: \(language.rawValue) (use language=\(language.codeI
             - short_answer: interview-ready summary — current approach vs better approach.
             - details: Current approach: explain what the code does and how it works. (2) What is wrong with it: inefficiencies, readability, maintainability, performance, edge cases, or best-practice gaps. (3) Better approach: explain the optimized strategy and why it is superior (complexity, clarity, idioms, patterns).
             - code: complete optimized \(language.rawValue) code (interview-ready, idiomatic; same language as input when identifiable).
-            """)
+            """, category: category)
         }
     }
 
-    private static func commonStreamingFormatRules(_ categoryRules: String) -> String {
-        """
+    /// Section order: for coding-type categories, code comes first; otherwise short_answer → details → code.
+    private static func sectionOrderLines(for category: Category) -> String {
+        switch category {
+        case .coding, .codeCorrection, .optimizationCode:
+            return """
+SECTION ORDER:
+1) <<TITLE>> ... <</TITLE>>
+2) <<SECTION:type=code language=...>> ... <</SECTION>>
+3) <<SECTION:type=short_answer>> ... <</SECTION>>
+4) <<SECTION:type=details>> ... <</SECTION>>
+5) <<CONTEXT>> ... <</CONTEXT>>  (MUST be last)
+"""
+        default:
+            return """
 SECTION ORDER:
 1) <<TITLE>> ... <</TITLE>>
 2) <<SECTION:type=short_answer>> ... <</SECTION>>
 3) <<SECTION:type=details>> ... <</SECTION>>
 4) <<SECTION:type=code language=...>> ... <</SECTION>> (ONLY if required by category)
 5) <<CONTEXT>> ... <</CONTEXT>>  (MUST be last)
+"""
+        }
+    }
+
+    private static func commonStreamingFormatRules(_ categoryRules: String, category: Category) -> String {
+        """
+\(sectionOrderLines(for: category))
 
 \(categoryRules)
 

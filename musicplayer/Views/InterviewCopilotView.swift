@@ -18,6 +18,7 @@ struct InterviewCopilotView: View {
     @State private var isShiftKeyPressed = false
     @State private var showChatGPTWebView = false
     @State private var isCategoryDropdownOpen = false
+    @State private var isLanguageDropdownOpen = false
     @State private var webViewLoading = false
     @State private var webViewCanGoBack = false
     @State private var webViewCanGoForward = false
@@ -53,7 +54,8 @@ struct InterviewCopilotView: View {
                 microphoneCaptionText: viewModel.microphoneCaptionText,
                 isChromeSoundActive: viewModel.isChromeSoundActive,
                 isScreenShareHidden: viewModel.isScreenShareHidden,
-                isCategoryDropdownOpen: $isCategoryDropdownOpen
+                isCategoryDropdownOpen: $isCategoryDropdownOpen,
+                isLanguageDropdownOpen: $isLanguageDropdownOpen
             )
             
             if showChatGPTWebView {
