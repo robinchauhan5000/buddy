@@ -100,7 +100,7 @@ enum WebViewPromptBuilder {
             CATEGORY RULES (Quick Answers):
             - short_answer: interview-ready answer.
             - details: brief justification.
-            - No code required.
+            - code: minimal valid placeholder in \(language.rawValue).
             """
 
         case .trueFalse:

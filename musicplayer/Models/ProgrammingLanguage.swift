@@ -7,8 +7,9 @@ enum ProgrammingLanguage: String, CaseIterable, Identifiable {
     case react = "React + TypeScript"
     case java = "Java"
     case sql = "SQL"
-    case csharp = "C#"
-    case dotnet = "Dotnet"
+    case kubernetes = "Kubernetes"
+    case css = "HTML + CSS"
+    case shellScripting = "Shell Scripting"
     
     var id: String { rawValue }
     
@@ -24,12 +25,14 @@ enum ProgrammingLanguage: String, CaseIterable, Identifiable {
             return "java"
         case .sql:
             return "sql"
-        case .csharp:
-            return "csharp"
+        case .kubernetes:
+            return "kubernetes"
         case .react:
-            return "react"
-        case .dotnet:
-            return "dotnet"
+            return "react + typescript"
+        case .css:
+            return "html+css"
+        case .shellScripting:
+            return "shell scripting"
         }
     }
 }

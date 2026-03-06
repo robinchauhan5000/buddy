@@ -13,7 +13,7 @@ import Speech
 @MainActor
 class InterviewCopilotViewModel: ObservableObject {
     @Published var selectedProvider: AIProvider = .openAI
-    @Published var selectedCategory: Category = .detailedAnswer
+    @Published var selectedCategory: Category = .quickAnswers
     @Published var sessionState: SessionState = .active
     @Published var isMicrophoneActive: Bool = false
     @Published var microphoneCaptionText: String = ""

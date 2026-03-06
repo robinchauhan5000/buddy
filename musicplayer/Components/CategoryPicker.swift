@@ -65,11 +65,11 @@ struct CategoryPicker: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, DesignSystem.Spacing.lg)
                         .padding(.vertical, DesignSystem.Spacing.sm)
+                        .background(selectedCategory == category ? Self.popupRowHighlight : Color.clear)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(selectedCategory == category ? Self.popupRowHighlight : Color.clear)
-                .contentShape(Rectangle())
 
                 if category.id != Category.allCases.last?.id {
                     Divider()

@@ -12,7 +12,7 @@ final class ChatViewModel: ObservableObject {
     @Published var currentInput: String = ""
     @Published var isProcessing: Bool = false
     @Published var isRecording: Bool = false
-    @Published var selectedCategory: Category = .detailedAnswer
+    @Published var selectedCategory: Category = .quickAnswers
     @Published var selectedProvider: AIProvider = .openAI
     @Published var selectedLanguage: ProgrammingLanguage = .golang
     @Published var capturedScreenshots: [ScreenshotData] = []
