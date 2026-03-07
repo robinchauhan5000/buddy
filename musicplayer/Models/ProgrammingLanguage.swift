@@ -10,6 +10,8 @@ enum ProgrammingLanguage: String, CaseIterable, Identifiable {
     case kubernetes = "Kubernetes"
     case css = "HTML + CSS"
     case shellScripting = "Shell Scripting"
+    case kafka = "Kafka"
+    case docker = "Docker"
     
     var id: String { rawValue }
     
@@ -33,6 +35,10 @@ enum ProgrammingLanguage: String, CaseIterable, Identifiable {
             return "html+css"
         case .shellScripting:
             return "shell scripting"
+        case .kafka:
+            return "kafka"
+        case .docker:
+            return "docker"
         }
     }
 }

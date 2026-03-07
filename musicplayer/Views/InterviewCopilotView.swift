@@ -16,6 +16,7 @@ struct InterviewCopilotView: View {
     @State private var commandKeyMonitor: Any?
     @State private var isCommandKeyPressed = false
     @State private var isShiftKeyPressed = false
+    @State private var isOptionKeyPressed = false
     @State private var showChatGPTWebView = false
     @State private var isCategoryDropdownOpen = false
     @State private var isLanguageDropdownOpen = false
@@ -173,40 +174,34 @@ private extension InterviewCopilotView {
         }
         isCommandKeyPressed = false
         isShiftKeyPressed = false
+        isOptionKeyPressed = false
     }
     
     func handleFlagsChanged(_ event: NSEvent) {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let isCommandOnly = flags == [.command]
         let isShiftOnly = flags == [.shift]
+        let isOptionOnly = flags == [.option]
         
         if isCommandOnly && !isCommandKeyPressed {
             isCommandKeyPressed = true
             if showChatGPTWebView {
-                if !chatViewModel.isRecording {
-                    chatViewModel.toggleSpeechInput()
-                }
+                let rawInput = chatViewModel.currentInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                let userInput = rawInput.isEmpty ? "Analyze this screenshot" : rawInput
+                let prompt = WebViewPromptBuilder.buildPromptForWebView(
+                    userInput: userInput,
+                    category: chatViewModel.selectedCategory,
+                    language: chatViewModel.selectedLanguage,
+                    useInterviewCounterQuestion: chatViewModel.useInterviewCounterQuestionPrompt
+                )
+                if !rawInput.isEmpty { chatViewModel.clearInput() }
+                webViewStore.sendPromptWithAttachment(prompt)
             } else {
                 viewModel.startMicrophoneFromShortcut()
             }
         } else if !isCommandOnly && isCommandKeyPressed {
             isCommandKeyPressed = false
-            if showChatGPTWebView {
-                if chatViewModel.isRecording {
-                    chatViewModel.toggleSpeechInput()
-                    let userInput = chatViewModel.currentInput.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !userInput.isEmpty {
-                        chatViewModel.clearInput()
-                        let prompt = WebViewPromptBuilder.buildPromptForWebView(
-                            userInput: userInput,
-                            category: chatViewModel.selectedCategory,
-                            language: chatViewModel.selectedLanguage,
-                            useInterviewCounterQuestion: chatViewModel.useInterviewCounterQuestionPrompt
-                        )
-                        webViewStore.sendMessageToChatGPT(prompt)
-                    }
-                }
-            } else {
+            if !showChatGPTWebView {
                 viewModel.stopMicrophoneFromShortcut()
             }
         }
@@ -220,6 +215,15 @@ private extension InterviewCopilotView {
             }
         } else if !isShiftOnly && isShiftKeyPressed {
             isShiftKeyPressed = false
+        }
+
+        if isOptionOnly && !isOptionKeyPressed {
+            isOptionKeyPressed = true
+            if showChatGPTWebView {
+                webViewStore.triggerDictateButton()
+            }
+        } else if !isOptionOnly && isOptionKeyPressed {
+            isOptionKeyPressed = false
         }
     }
 }

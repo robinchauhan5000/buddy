@@ -24,7 +24,11 @@ enum WebViewPromptBuilder {
         let categoryRules = getStreamingSectionRulesForCategory(category, language: language)
         let counterBlock = useInterviewCounterQuestion ? "\n\(getInterviewCounterQuestionPromptForWebView())\n" : ""
         return """
-        You are a senior fullstack engineer answering technical interview questions. Interview-ready answer only.
+        You are a senior fullstack engineer answering technical interview questions. 
+        Important: if you are using short forms then add full form like API (application programming interface) instead of API.
+
+        Important: whenever there is explaination of something then provide interview-ready answer only so that i can read text directly to the interviewer.
+
         Requested language for code: \(language.rawValue).
         \(counterBlock)
         \(categoryRules)
@@ -48,6 +52,7 @@ enum WebViewPromptBuilder {
         return """
         \(categoryRules)
 
+        if you are using short forms then add full form like API (application programming interface) instead of API.
         You are answering as a senior technical interviewer. Provide interview-ready answer in the requested category.
         \(streamingRules)
 
@@ -91,7 +96,7 @@ enum WebViewPromptBuilder {
             return """
             CATEGORY RULES (Rapid Interview):
             - short_answer: interview-ready answer.
-            - details: max 5 bullets with reasoning and trade-offs.
+            - details: interview-ready answer, max 5 bullets with reasoning and trade-offs.
             - code: minimal valid placeholder in \(language.rawValue).
             """
 
@@ -99,7 +104,7 @@ enum WebViewPromptBuilder {
             return """
             CATEGORY RULES (Quick Answers):
             - short_answer: interview-ready answer.
-            - details: brief justification.
+            - details: interview-ready answer, brief justification.
             - code: minimal valid placeholder in \(language.rawValue).
             """
 
@@ -115,16 +120,16 @@ enum WebViewPromptBuilder {
             return """
             CATEGORY RULES (Coding Interview):
             - code:
-                Minimal, clean, interview-ready solution in \(language.rawValue).
-                Solve ONLY what is asked.
+                Fully function Code, clean, interview-ready solution in \(language.rawValue).
+                Solve ONLY what is asked. Dont just define but Show me also how to use it
                 No CLI handling, file I/O, logging, or production extras unless required.
                 Focus strictly on core logic.
-            - short_answer: explain approach briefly.
-            - details:
-                - Explain technique used.
-                - Why optimal.
-                - Trade-offs.
-                - Edge cases.
+            - short_answer: Interview-ready answer, explain the approach in layman language. dont mention about screenshot.
+            - details (Answer the below questions so i can read text directly to the interviewer):
+                - Approach:Explain technique used In layman language and interview-ready answer .
+                - How it works:In layman language,interview-ready answer, Explain how this technique works in detail.
+                - Code:In layman language,Interview-ready answer, explain code step by step with code snippet and explain the logic behind the code with comments.
+                - Why optimal:In layman language,Interview-ready answer, Why this is optimal solution and not other approaches.
             """
 
         case .detailedAnswer:
@@ -147,7 +152,7 @@ enum WebViewPromptBuilder {
 
         case .systemDesign:
     return """
-    You MUST produce all 7 sections in this exact logical order:
+    You MUST produce all 7 sections in this exact logical order and provide interview-ready answer:
 
     1) problem_restatement
     2) mermaid_diagram
@@ -169,7 +174,7 @@ enum WebViewPromptBuilder {
     STRUCTURE EXPECTATION (inside details):
 
     problem_restatement:
-        - Restate scope, constraints, and success criteria.
+        - interview-ready answer, Restate scope, constraints, and success criteria.
 
     mermaid_diagram:
         - Provide valid Mermaid flowchart (flowchart TD).
@@ -177,12 +182,12 @@ enum WebViewPromptBuilder {
         - No explanation text inside diagram section.
 
     how_this_current_approach_works:
-        - Explain request/data flow.
-        - Clarify ownership of data.
-        - Mention one trade-off.
+        - interview-ready answer, Explain request/data flow.
+        - interview-ready answer, Clarify ownership of data.
+        - interview-ready answer, Mention one trade-off.
 
     list_of_services_we_will_create:
-        - List services with one-line responsibility.
+        - interview-ready answer, List services with one-line responsibility.
         - Order by request flow.
 
     issues_with_current_implementation:
@@ -229,38 +234,38 @@ enum WebViewPromptBuilder {
             CATEGORY RULES (Output Type):
             - short_answer: exact output only.
             - details:
-                - Why this output occurs.
-                - Underlying concept.
-                - Example explanation.
+                - interview-ready answer, Why this output occurs.
+                - interview-ready answer, Underlying concept.
+                - interview-ready answer, Example explanation.
             """
 
         case .mcq:
             return """
             CATEGORY RULES (MCQ):
             - short_answer: clearly state ONE correct option.
-            - details: concise reasoning and why others are incorrect.
+            - details: interview-ready answer, concise reasoning and why others are incorrect.
             """
 
         case .codeCorrection:
             return """
             CATEGORY RULES (Code Correction):
-            - short_answer: summary of bug and fix.
+            - short_answer: interview-ready answer, summary of bug and fix.
             - details:
                 - What was wrong
-                - Exact problematic line
-                - Why it fails
-                - Why fix works
+                - interview-ready answer, Exact problematic line
+                - interview-ready answer, Why it fails
+                - interview-ready answer, Why fix works
             - code: complete corrected \(language.rawValue) solution.
             """
 
         case .optimizationCode:
             return """
             CATEGORY RULES (Optimization Code):
-            - short_answer: current vs improved approach summary.
+            - short_answer: interview-ready answer, current vs improved approach summary.
             - details:
                 - What current code does
-                - Inefficiencies
-                - Better approach and complexity comparison
+                - interview-ready answer, Inefficiencies
+                - interview-ready answer, Better approach and complexity comparison
             - code: optimized idiomatic \(language.rawValue) solution.
             """
         }
